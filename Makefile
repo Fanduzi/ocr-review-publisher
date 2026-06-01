@@ -27,6 +27,9 @@ test-compat:
 	go test ./internal/compat -count=1 -v
 
 test-e2e-gitlab:
+	@if [ -f env.gitlab.local ]; then \
+		set -a; . ./env.gitlab.local; set +a; \
+	fi; \
 	go test -tags=e2e ./internal/e2e/gitlab -count=1 -v
 
 release-readiness: check test-race

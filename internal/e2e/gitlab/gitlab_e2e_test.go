@@ -99,7 +99,6 @@ func findFirstAddedLine(changedFiles []gitlab.ChangedFile) (path string, line in
 		}
 		_, found := gitlab.SelectAddedLineInRange(f.Diff, 1, 10000)
 		if found {
-			// Find the actual first added line
 			for l := 1; l <= 10000; l++ {
 				if _, ok := gitlab.SelectAddedLineInRange(f.Diff, l, l); ok {
 					return f.NewPath, l, true
@@ -108,6 +107,62 @@ func findFirstAddedLine(changedFiles []gitlab.ChangedFile) (path string, line in
 		}
 	}
 	return "", 0, false
+}
+
+func findFirstAddedLineByExtension(changedFiles []gitlab.ChangedFile, ext string) (path string, line int, ok bool) {
+	for _, f := range changedFiles {
+		if f.DeletedFile || f.NewPath == "" || f.Diff == "" {
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(f.NewPath), strings.ToLower(ext)) {
+			continue
+		}
+		for l := 1; l <= 10000; l++ {
+			if _, ok := gitlab.SelectAddedLineInRange(f.Diff, l, l); ok {
+				return f.NewPath, l, true
+			}
+		}
+	}
+	return "", 0, false
+}
+
+func assertNoteContains(t *testing.T, body, text, label string) {
+	t.Helper()
+	if !strings.Contains(body, text) {
+		t.Errorf("missing %s (%q) in note body", label, text)
+	}
+}
+
+func assertNoteNotContains(t *testing.T, body, text, label string) {
+	t.Helper()
+	if strings.Contains(body, text) {
+		t.Errorf("note body must not contain %s (%q)", label, text)
+	}
+}
+
+func assertFencedBlockContains(t *testing.T, body, fence, content string) {
+	t.Helper()
+	fenceStart := "```" + fence
+	// Search all fence blocks of this language for the content.
+	remaining := body
+	for {
+		idx := strings.Index(remaining, fenceStart)
+		if idx < 0 {
+			t.Errorf("expected fence %q containing %q in note body", fenceStart, content)
+			return
+		}
+		blockStart := idx + len(fenceStart)
+		blockEnd := strings.Index(remaining[blockStart:], "```")
+		if blockEnd < 0 {
+			t.Errorf("unclosed fence block %q", fenceStart)
+			return
+		}
+		block := remaining[blockStart : blockStart+blockEnd]
+		if strings.Contains(block, content) {
+			return // found
+		}
+		remaining = remaining[blockStart+blockEnd+3:]
+	}
 }
 
 func uniqueSuffix() string {
@@ -323,9 +378,14 @@ func TestGitLabE2E_InlineCommentRenderingQuality(t *testing.T) {
 		t.Skip("MR has no changed files")
 	}
 
-	targetFile, targetLine, ok := findFirstAddedLine(files)
+	// Prefer .go files for language-aware fence testing.
+	targetFile, targetLine, ok := findFirstAddedLineByExtension(files, ".go")
+	isGoFile := ok
 	if !ok {
-		t.Skip("no suitable added line in MR diff")
+		targetFile, targetLine, ok = findFirstAddedLine(files)
+		if !ok {
+			t.Skip("no suitable added line in MR diff")
+		}
 	}
 
 	// Build a finding with all rendering features.
@@ -352,6 +412,7 @@ func TestGitLabE2E_InlineCommentRenderingQuality(t *testing.T) {
 		t.Fatal("expected at least 1 inline published")
 	}
 
+	// Fetch note BEFORE cleanup to assert rendering quality.
 	notes := listAllNotes(t, client, cfg)
 	marked := findNotesWithMarker(notes, lifecycle.InlineMarker)
 	var foundNote *gitlab.Note
@@ -366,32 +427,32 @@ func TestGitLabE2E_InlineCommentRenderingQuality(t *testing.T) {
 	}
 
 	body := foundNote.Body
-	wantContains := []struct {
-		label string
-		text  string
-	}{
-		{"inline marker", lifecycle.InlineMarker},
-		{"category badge", "category-security"},
-		{"severity badge", "severity-high"},
-		{"details block", "<details><summary>Review context</summary>"},
-		{"existing code", "old code here"},
-		{"thinking label", "Reviewer notes:"},
-		{"thinking content", "reasoning about the fix"},
-		{"suggested change", "fixed code here"},
-	}
-	for _, w := range wantContains {
-		if !strings.Contains(body, w.text) {
-			t.Errorf("missing %s (%q) in note body", w.label, w.text)
-		}
+
+	// Positive assertions.
+	assertNoteContains(t, body, lifecycle.InlineMarker, "inline marker")
+	assertNoteContains(t, body, "category-security", "category badge")
+	assertNoteContains(t, body, "severity-high", "severity badge")
+	assertNoteContains(t, body, "<details><summary>Review context</summary>", "details block")
+	assertNoteContains(t, body, "old code here", "existing code content")
+	assertNoteContains(t, body, "Reviewer notes:", "thinking label")
+	assertNoteContains(t, body, "reasoning about the fix", "thinking content")
+	assertNoteContains(t, body, "fixed code here", "suggested change content")
+
+	// Existing code must be in a fenced block, not bare text.
+	assertFencedBlockContains(t, body, "go", "old code here")
+
+	// For .go files, fence should be ```go, not ```text.
+	if isGoFile {
+		assertNoteContains(t, body, "```go", "go language fence")
+		assertNoteNotContains(t, body, "```text\nold code here", "existing code not in text fence")
 	}
 
+	// Suggested change should use language fence, not ```suggestion.
+	assertNoteNotContains(t, body, "```suggestion", "suggestion fence")
+	assertFencedBlockContains(t, body, "go", "fixed code here")
+
 	// Negative assertions.
-	if strings.Contains(body, "```suggestion") {
-		t.Error("rendered comment must not contain ```suggestion fence")
-	}
-	if strings.Contains(body, "line_code can't be blank") {
-		t.Error("rendered comment must not contain raw GitLab API error")
-	}
+	assertNoteNotContains(t, body, "line_code can't be blank", "raw GitLab API error")
 }
 
 func TestGitLabE2E_PublishSkippedInlineAppearsInSummaryDiagnostics(t *testing.T) {
@@ -423,15 +484,22 @@ func TestGitLabE2E_PublishSkippedInlineAppearsInSummaryDiagnostics(t *testing.T)
 		t.Fatal("expected summary created or updated")
 	}
 
-	// Verify summary contains the finding path.
+	// Fetch summary note BEFORE cleanup to assert content.
 	notes := listAllNotes(t, client, cfg)
 	marked := findNotesWithMarker(notes, lifecycle.SummaryMarker)
 	if len(marked) == 0 {
 		t.Fatal("no summary marker note found")
 	}
-	if !strings.Contains(marked[0].Body, "test.go") {
-		t.Errorf("summary should contain skipped finding path, got:\n%s", marked[0].Body[:min(500, len(marked[0].Body))])
-	}
+
+	body := marked[0].Body
+
+	// Positive assertions.
+	assertNoteContains(t, body, lifecycle.SummaryMarker, "summary marker")
+	assertNoteContains(t, body, "test.go", "skipped finding path")
+	assertNoteContains(t, body, "<details><summary>Publish diagnostics", "diagnostics details block")
+
+	// Negative assertions.
+	assertNoteNotContains(t, body, "Publish warnings:", "old warnings wording")
 }
 
 func min(a, b int) int {
