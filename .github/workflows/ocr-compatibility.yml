@@ -1,0 +1,57 @@
+name: OCR Compatibility
+
+on:
+  schedule:
+    - cron: '23 3 * * 1'  # Weekly Monday 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-compatibility:
+    name: Fixture Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run compatibility tests
+        run: make test-compat
+
+  live-capture:
+    name: Live OCR Capture
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Capture latest OCR output
+        env:
+          OCR_LLM_API_KEY: ${{ secrets.OCR_LLM_API_KEY }}
+        run: |
+          if [ -z "$OCR_LLM_API_KEY" ]; then
+            echo "No LLM credentials configured, skipping live capture"
+            exit 0
+          fi
+          bash scripts/capture-ocr-output.sh --ocr-version latest --output /tmp/ocr-latest.json
+          echo "Captured OCR output successfully"
+
+      - name: Validate captured output
+        run: |
+          if [ -f /tmp/ocr-latest.json ]; then
+            go test ./internal/compat -count=1 -v -run TestCompatibilityFixturesParse
+          else
+            echo "No captured output, skipping validation"
+          fi

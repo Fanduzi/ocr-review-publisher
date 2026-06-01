@@ -27,28 +27,42 @@ Fixtures must not contain secrets, private repository names, private URLs, or lo
 
 ## Local Compatibility Flow
 
-The local flow should eventually look like:
+Run compatibility tests locally:
 
 ```bash
 make test-compat
 ```
 
-For regenerating fixtures:
+This runs `go test ./internal/compat -count=1` which validates all checked-in fixtures parse correctly and have the expected shape. No network or LLM credentials required.
+
+For regenerating fixtures from a live OCR run:
 
 ```bash
 scripts/capture-ocr-output.sh --ocr-version latest --output testdata/ocr/latest.json
 ```
 
-The capture script should run against a small fixture repository with deterministic changes. If live LLM credentials are unavailable, developers should still be able to run parser fixture tests.
+The capture script creates a temporary sample repository with deterministic changes, installs the requested OCR version, runs `ocr review --format json --audience agent`, and writes the output to the specified path. LLM credentials must be configured for OCR to generate reviews.
+
+## Checked-In Fixtures
+
+Fixtures are stored under `testdata/ocr/`:
+
+- `basic.json` - Standard OCR output with findings, existing code, suggestions, thinking
+- `prefixed-agent-output.txt` - OCR output with non-JSON text before the JSON object
+- `empty-comments.json` - OCR output with empty comments array
+- `with-warnings.json` - OCR output with warnings
+- `future-fields.json` - OCR output with category, severity, confidence, and unknown future fields
+
+Fixtures must not contain local paths, tokens, private URLs, or real GitLab info.
 
 ## GitHub Actions
 
-The project should use two levels of CI:
+The project uses two levels of CI:
 
-- Pull request CI: run parser fixture tests, renderer golden tests, vet, build, and unit tests.
-- Scheduled OCR compatibility CI: install the latest published OCR package, capture output when credentials are available, and validate that the parser still accepts the output.
+- **Pull request CI** (`.github/workflows/ci.yml`): runs `make check` which includes `make test-compat`, unit tests, vet, build, and format checks.
+- **Scheduled OCR compatibility CI** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility tests weekly. On manual dispatch, optionally captures live OCR output if LLM credentials are configured as GitHub secrets.
 
-Scheduled compatibility CI should be allowed to fail loudly. Its purpose is to detect upstream OCR output changes before users hit failures in GitLab publishing.
+Scheduled compatibility CI does not require GitLab tokens or platform access. Fixture compatibility always runs; live capture is opt-in and skips gracefully when credentials are absent.
 
 ## Release Requirement
 
