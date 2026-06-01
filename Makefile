@@ -22,5 +22,4 @@ test-compat:
 	go test ./internal/compat -count=1 -v
 
 test-e2e-gitlab:
-	@echo "Skipping GitLab e2e tests: set OCR_E2E_GITLAB=1 and required env vars to enable."
-	@echo "See docs/ for e2e requirements."
+	go test -tags=e2e ./internal/e2e/gitlab -count=1 -v
