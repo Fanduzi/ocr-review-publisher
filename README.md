@@ -1,14 +1,14 @@
 # OCR Review Publisher
 
 [![CI](https://github.com/Fanduzi/ocr-review-publisher/actions/workflows/ci.yml/badge.svg)](https://github.com/Fanduzi/ocr-review-publisher/actions/workflows/ci.yml)
-![Go Version](https://img.shields.io/badge/go-1.22-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/go-1.26.1-00ADD8?logo=go)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![English](https://img.shields.io/badge/docs-English-blue)](README.md) [![简体中文](https://img.shields.io/badge/docs-简体中文-yellow)](README.zh-CN.md)
 
 [![Quality Gates](https://img.shields.io/badge/Quality_Gates-informational)](docs/quality-gates.md) [![OCR Compatibility](https://img.shields.io/badge/OCR_Compatibility-informational)](docs/ocr-compatibility.md) [![Release Process](https://img.shields.io/badge/Release_Process-success)](docs/release.md) [![GitLab E2E](https://img.shields.io/badge/GitLab_E2E-informational)](docs/e2e-gitlab.md) [![Contributing](https://img.shields.io/badge/Contributing-important)](CONTRIBUTING.md)
 
-`ocr-review-publisher` is a platform publishing layer for Open Code Review output.
+`ocr-review-publisher` is a platform publishing layer for [Open Code Review](https://github.com/alibaba/open-code-review) output.
 
 Open Code Review generates review findings. This project consumes its machine-readable output and publishes those findings as high-quality GitLab merge request comments.
 
@@ -197,7 +197,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow and TDD requirem
 - [Quality Gates](docs/quality-gates.md) - Definition of done and release blockers
 - [OCR Compatibility](docs/ocr-compatibility.md) - Parser compatibility policy and fixtures
 - [GitLab Usage](docs/gitlab.md) - Detailed GitLab configuration and troubleshooting
-- [CI Integration](docs/ci.md) - GitLab CI and GitHub Actions examples
+- [CI Integration](docs/ci.md) - GitLab CI usage and project GitHub Actions workflows
 - [Output Contract](docs/output-contract.md) - Accepted OCR output format
 - [GitLab E2E Testing](docs/e2e-gitlab.md) - Opt-in real GitLab tests
 - [Release Process](docs/release.md) - Release gates and workflow

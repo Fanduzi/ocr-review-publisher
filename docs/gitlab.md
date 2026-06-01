@@ -17,19 +17,14 @@ This document covers detailed GitLab configuration and usage for `ocr-review-pub
 
 ### CI/CD Token
 
-In GitLab CI, use the built-in `CI_JOB_TOKEN` or a project/group access token:
-
-```yaml
-variables:
-  GITLAB_TOKEN: ${CI_JOB_TOKEN}
-```
-
-Or use a dedicated token stored in CI/CD variables:
+In GitLab CI, store a Personal Access Token, Project Access Token, or Group Access Token with `api` scope as a CI/CD variable:
 
 ```yaml
 variables:
   GITLAB_TOKEN: ${OCR_GITLAB_TOKEN}
 ```
+
+> **Note:** The built-in `CI_JOB_TOKEN` has limited permissions and may not support creating merge request discussions on all GitLab versions. Use a dedicated token with `api` scope for reliable publishing.
 
 ## Project Identification
 

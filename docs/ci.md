@@ -4,12 +4,14 @@ This document covers CI/CD integration for `ocr-review-publisher`.
 
 ## GitLab CI
 
+Use the publisher in your GitLab CI pipelines to publish OCR review findings to merge requests.
+
 ### Basic Example
 
 ```yaml
 review:
   stage: review
-  image: golang:1.22
+  image: golang:1.26.1
   script:
     # Install OCR
     - npm install -g @alibaba-group/open-code-review
@@ -26,12 +28,14 @@ review:
         --input ocr-result.json
         --format text
   variables:
-    GITLAB_TOKEN: ${CI_JOB_TOKEN}
+    GITLAB_TOKEN: ${OCR_GITLAB_TOKEN}
     CI_PROJECT_ID: ${CI_PROJECT_ID}
     CI_MERGE_REQUEST_IID: ${CI_MERGE_REQUEST_IID}
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
+
+> **Token note:** Store a Personal Access Token, Project Access Token, or Group Access Token with `api` scope as `OCR_GITLAB_TOKEN` in CI/CD variables. The built-in `CI_JOB_TOKEN` has limited permissions and may not support creating merge request discussions.
 
 ### With Clear Before Publish
 
@@ -72,12 +76,14 @@ review:
 
 | Variable | Description | Source |
 |----------|-------------|--------|
-| `GITLAB_TOKEN` | GitLab API token | CI/CD variable or `CI_JOB_TOKEN` |
+| `GITLAB_TOKEN` | GitLab API token | CI/CD variable (Personal/Project/Group Access Token with `api` scope) |
 | `CI_PROJECT_ID` | Project ID | Built-in GitLab CI variable |
 | `CI_MERGE_REQUEST_IID` | MR IID | Built-in GitLab CI variable |
 | `CI_SERVER_URL` | GitLab URL | Built-in GitLab CI variable |
 
-## GitHub Actions
+## GitHub Actions (This Repository)
+
+This section documents the GitHub Actions workflows used by the `ocr-review-publisher` project itself. These workflows are for CI/CD of the publisher tool, not for publishing to GitHub PRs (which is not supported).
 
 ### PR CI
 
@@ -98,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26.1'
       - run: make check
 ```
 

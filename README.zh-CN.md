@@ -1,14 +1,14 @@
 # OCR Review Publisher
 
 [![CI](https://github.com/Fanduzi/ocr-review-publisher/actions/workflows/ci.yml/badge.svg)](https://github.com/Fanduzi/ocr-review-publisher/actions/workflows/ci.yml)
-![Go Version](https://img.shields.io/badge/go-1.22-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/go-1.26.1-00ADD8?logo=go)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![English](https://img.shields.io/badge/docs-English-blue)](README.md) [![简体中文](https://img.shields.io/badge/docs-简体中文-yellow)](README.zh-CN.md)
 
 [![Quality Gates](https://img.shields.io/badge/Quality_Gates-informational)](docs/quality-gates.md) [![OCR Compatibility](https://img.shields.io/badge/OCR_Compatibility-informational)](docs/ocr-compatibility.md) [![Release Process](https://img.shields.io/badge/Release_Process-success)](docs/release.md) [![GitLab E2E](https://img.shields.io/badge/GitLab_E2E-informational)](docs/e2e-gitlab.md) [![Contributing](https://img.shields.io/badge/Contributing-important)](CONTRIBUTING.md)
 
-`ocr-review-publisher` 是 Open Code Review 输出的平台发布层。
+`ocr-review-publisher` 是 [Open Code Review](https://github.com/alibaba/open-code-review) 输出的平台发布层。
 
 Open Code Review 生成代码审查发现。本项目消费其机器可读输出，并将这些发现作为高质量的 GitLab 合并请求评论发布。
 
