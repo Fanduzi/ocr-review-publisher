@@ -2,9 +2,17 @@
 
 This project publishes a wrapper around [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) output. A release must prove both local code correctness and compatibility with the OCR CLI output contract.
 
-## Current Status
+## Release Artifacts
 
-Formal release packaging (GoReleaser, binary artifacts, automated GitHub Releases) is planned but not yet implemented. Currently, users build from source. The gates and workflow below describe the intended release process.
+Each release produces:
+
+- `ocr-review-publisher_<version>_darwin_amd64.tar.gz`
+- `ocr-review-publisher_<version>_darwin_arm64.tar.gz`
+- `ocr-review-publisher_<version>_linux_amd64.tar.gz`
+- `ocr-review-publisher_<version>_linux_arm64.tar.gz`
+- `ocr-review-publisher_<version>_checksums.txt`
+
+Not supported: Homebrew, npm, Docker.
 
 ## Local Gates
 
@@ -41,6 +49,36 @@ scripts/gitlab-smoke.example.sh cleanup
 
 The smoke script builds the current publisher, publishes comments to a real GitLab MR, and asserts rendered comment quality.
 
+## Release Flow
+
+1. **Prepare bilingual release notes:**
+   - Create `docs/releases/release-notes-vX.Y.Z.md` (English)
+   - Create `docs/releases/release-notes-vX.Y.Z.zh-CN.md` (Chinese)
+   - Use templates in `docs/releases/release-notes-template*.md`
+
+2. **Run local gates:**
+   ```bash
+   make release-readiness
+   make test-e2e-gitlab  # if GitLab credentials available
+   ```
+
+3. **Create and push annotated tag:**
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+4. **GitHub Actions release workflow runs automatically:**
+   - Runs `make release-readiness`
+   - Validates release notes files exist
+   - Runs GoReleaser to build and publish artifacts
+   - Creates GitHub Release with bilingual notes
+
+5. **Verify release:**
+   - Check GitHub Release page for correct artifacts
+   - Verify checksums file
+   - Download and test binary: `./ocr-review-publisher version`
+
 ## GitHub Actions Gates
 
 Required workflows:
@@ -48,6 +86,7 @@ Required workflows:
 - **CI** (`.github/workflows/ci.yml`): runs `make check` on push to main and pull requests.
 - **OCR Compatibility** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility weekly; optional live capture on manual dispatch when LLM secrets are configured.
 - **Release Readiness** (`.github/workflows/release-readiness.yml`): runs `make release-readiness` on manual dispatch only. Does not publish, does not create tags/releases.
+- **Release** (`.github/workflows/release.yml`): tag-triggered, builds artifacts and publishes GitHub Release.
 
 The release readiness workflow does not publish anything. It only verifies that the codebase passes all pre-release gates. Real GitLab e2e/smoke remains a manual opt-in step that requires platform credentials.
 
@@ -67,12 +106,17 @@ Do not release if:
 
 ## Release Notes
 
-Each release should include:
+Each release requires bilingual release notes:
+
+- `docs/releases/release-notes-vX.Y.Z.md` (English)
+- `docs/releases/release-notes-vX.Y.Z.zh-CN.md` (Chinese)
+
+Notes should include:
 
 - publisher version;
 - verified OCR version range;
 - supported platform scope;
 - known OCR output compatibility limitations;
 - whether GitLab e2e/smoke was run;
-- English and Chinese README update status;
+- installation instructions;
 - any migration notes for config or markers.

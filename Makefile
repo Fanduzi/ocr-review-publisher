@@ -1,4 +1,4 @@
-.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab release-readiness
+.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab release-readiness release-snapshot release-check
 
 BINARY := ocr-review-publisher
 VERSION ?= dev
@@ -40,3 +40,9 @@ release-readiness: check test-race
 		echo "FAIL: sensitive patterns found"; exit 1; \
 	fi
 	@echo "All release readiness checks passed."
+
+release-check:
+	goreleaser check
+
+release-snapshot:
+	goreleaser release --snapshot --clean

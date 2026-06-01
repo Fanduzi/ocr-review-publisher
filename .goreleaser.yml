@@ -1,0 +1,28 @@
+version: 2
+
+project_name: ocr-review-publisher
+
+builds:
+  - id: ocr-review-publisher
+    binary: ocr-review-publisher
+    main: ./cmd/ocr-review-publisher
+    ldflags:
+      - -X main.Version={{ .Version }}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+changelog:
+  disable: true
