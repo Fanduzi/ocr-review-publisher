@@ -11,6 +11,16 @@ make check
 make test-compat
 ```
 
+These run without secrets or network access. `make check` includes format, test, vet, build, and compatibility checks.
+
+For stricter pre-release validation:
+
+```bash
+make release-readiness
+```
+
+This runs `make check` plus race detection tests, whitespace checks, and sensitive pattern scanning.
+
 If GitLab credentials are available, also run:
 
 ```bash
@@ -20,22 +30,22 @@ make test-e2e-gitlab
 Then run the local smoke flow against a real test MR:
 
 ```bash
-scripts/gitlab-smoke.sh publish
-scripts/gitlab-smoke.sh check
-scripts/gitlab-smoke.sh cleanup
+scripts/gitlab-smoke.example.sh publish
+scripts/gitlab-smoke.example.sh check
+scripts/gitlab-smoke.example.sh cleanup
 ```
 
-The smoke script should build the current publisher, run OCR against a fixture or test repository, publish comments, fetch them back through the platform API, and assert rendered comment quality.
+The smoke script builds the current publisher, publishes comments to a real GitLab MR, and asserts rendered comment quality.
 
 ## GitHub Actions Gates
 
 Required workflows:
 
-- Pull request CI.
-- Scheduled OCR compatibility CI.
-- Release readiness CI.
+- **CI** (`.github/workflows/ci.yml`): runs `make check` on push to main and pull requests.
+- **OCR Compatibility** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility weekly; optional live capture on manual dispatch when LLM secrets are configured.
+- **Release Readiness** (`.github/workflows/release-readiness.yml`): runs `make release-readiness` on manual dispatch only. Does not publish, does not create tags/releases.
 
-The release workflow should not need GitLab tokens for normal unit compatibility checks. Real GitLab publishing remains an opt-in e2e/smoke gate because it requires platform credentials.
+The release readiness workflow does not publish anything. It only verifies that the codebase passes all pre-release gates. Real GitLab e2e/smoke remains a manual opt-in step that requires platform credentials.
 
 ## Release Blockers
 
@@ -47,7 +57,7 @@ Do not release if:
 - GitLab clear/update can delete unmarked comments;
 - repeated publish creates duplicate summaries;
 - tokens or local environment details appear in tracked files;
-- release notes do not state the verified OCR version range.
+- release notes do not state the verified OCR version range;
 - README.md and README.zh-CN.md are missing, stale, or inconsistent;
 - README badges do not follow the local readme-badges skill.
 
