@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "message": "Review completed",
+  "comments": [
+    {
+      "path": "service/user.go",
+      "content": "Error return value of `fmt.Println` is not checked",
+      "existing_code": "fmt.Println(err)",
+      "suggestion_code": "if err != nil {\n\treturn fmt.Errorf(\"log error: %w\", err)\n}",
+      "start_line": 37,
+      "end_line": 37,
+      "thinking": "The error from fmt.Println is silently discarded."
+    },
+    {
+      "path": "cmd/main.go",
+      "content": "Missing context propagation",
+      "start_line": 12,
+      "end_line": 20
+    }
+  ]
+}

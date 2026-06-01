@@ -1,0 +1,24 @@
+{
+  "status": "partial",
+  "message": "Completed with warnings",
+  "comments": [
+    {
+      "path": "a.go",
+      "content": "finding",
+      "start_line": 1,
+      "end_line": 1
+    }
+  ],
+  "warnings": [
+    {
+      "type": "subtask_failed",
+      "path": "b.go",
+      "message": "could not analyze file"
+    },
+    {
+      "type": "timeout",
+      "message": "review timed out after 60s",
+      "extra_field": "preserved"
+    }
+  ]
+}

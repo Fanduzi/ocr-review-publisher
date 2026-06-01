@@ -1,0 +1,14 @@
+Review completed in 12.3s using model claude-sonnet-4-20250514
+Found 1 finding across 1 file.
+{
+  "status": "success",
+  "message": "1 finding",
+  "comments": [
+    {
+      "path": "main.go",
+      "content": "unused variable",
+      "start_line": 5,
+      "end_line": 5
+    }
+  ]
+}

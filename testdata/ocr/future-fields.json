@@ -1,0 +1,17 @@
+{
+  "status": "success",
+  "message": "",
+  "comments": [
+    {
+      "path": "handler.go",
+      "content": "SQL injection risk",
+      "start_line": 42,
+      "end_line": 42,
+      "category": "security",
+      "severity": "high",
+      "confidence": 0.95,
+      "rule_id": "sql-injection-001",
+      "extra_tag": "future"
+    }
+  ]
+}
