@@ -4,3 +4,4 @@ tmp/
 dist/
 coverage.out
 /ocr-review-publisher
+docs/internal/
