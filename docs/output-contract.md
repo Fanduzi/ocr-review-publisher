@@ -1,6 +1,6 @@
 # Output Contract
 
-This document describes the OCR output format accepted by `ocr-review-publisher`.
+This document describes the [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) output format accepted by `ocr-review-publisher`.
 
 ## Accepted Format
 

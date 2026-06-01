@@ -1,6 +1,6 @@
 # OCR Output Compatibility
 
-`ocr-review-publisher` depends on the machine-readable output from `ocr review --format json --audience agent`. That output is an external contract owned by Open Code Review, so this project must verify it continuously.
+`ocr-review-publisher` depends on the machine-readable output from `ocr review --format json --audience agent`. That output is an external contract owned by [Open Code Review](https://github.com/alibaba/open-code-review), so this project must verify it continuously.
 
 ## Compatibility Policy
 

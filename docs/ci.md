@@ -4,28 +4,30 @@ This document covers CI/CD integration for `ocr-review-publisher`.
 
 ## GitLab CI
 
-Use the publisher in your GitLab CI pipelines to publish OCR review findings to merge requests.
+Use the publisher in your GitLab CI pipelines to publish [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) findings to merge requests.
 
 ### Basic Example
+
+The example below uses a custom image with Go and Node.js. If using the official `golang` image, add Node.js installation steps.
 
 ```yaml
 review:
   stage: review
   image: golang:1.26.1
-  script:
+  before_script:
+    # Install Node.js for OCR CLI
+    - apt-get update && apt-get install -y nodejs npm
     # Install OCR
     - npm install -g @alibaba-group/open-code-review
-
-    # Install publisher
+    # Build publisher
     - go build -o ocr-review-publisher ./cmd/ocr-review-publisher
-
-    # Generate OCR output
-    - ocr review --from origin/main --to HEAD --format json --audience agent > ocr-result.json
-
-    # Publish to GitLab
-    - ./ocr-review-publisher publish
-        --platform gitlab
-        --input ocr-result.json
+  script:
+    - |
+      ocr review --from origin/main --to HEAD --format json --audience agent > ocr-result.json
+    - |
+      ./ocr-review-publisher publish \
+        --platform gitlab \
+        --input ocr-result.json \
         --format text
   variables:
     GITLAB_TOKEN: ${OCR_GITLAB_TOKEN}
@@ -44,7 +46,10 @@ review:
   stage: review
   script:
     - ./ocr-review-publisher clear --platform gitlab --scope all || true
-    - ./ocr-review-publisher publish --platform gitlab --input ocr-result.json
+    - |
+      ./ocr-review-publisher publish \
+        --platform gitlab \
+        --input ocr-result.json
 ```
 
 ### Dry Run
@@ -55,7 +60,11 @@ Use `--dry-run` to preview without publishing:
 review-dry-run:
   stage: review
   script:
-    - ./ocr-review-publisher publish --platform gitlab --input ocr-result.json --dry-run
+    - |
+      ./ocr-review-publisher publish \
+        --platform gitlab \
+        --input ocr-result.json \
+        --dry-run
 ```
 
 ### JSON Output
@@ -66,7 +75,11 @@ Use `--format json` for machine-readable output:
 review:
   stage: review
   script:
-    - ./ocr-review-publisher publish --platform gitlab --input ocr-result.json --format json > publish-report.json
+    - |
+      ./ocr-review-publisher publish \
+        --platform gitlab \
+        --input ocr-result.json \
+        --format json > publish-report.json
   artifacts:
     paths:
       - publish-report.json

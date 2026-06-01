@@ -1,6 +1,10 @@
 # Release Process
 
-This project publishes a wrapper around OCR output. A release must prove both local code correctness and compatibility with the OCR CLI output contract.
+This project publishes a wrapper around [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) output. A release must prove both local code correctness and compatibility with the OCR CLI output contract.
+
+## Current Status
+
+Formal release packaging (GoReleaser, binary artifacts, automated GitHub Releases) is planned but not yet implemented. Currently, users build from source. The gates and workflow below describe the intended release process.
 
 ## Local Gates
 
