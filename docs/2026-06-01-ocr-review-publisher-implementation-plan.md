@@ -372,6 +372,7 @@ Required GitHub Actions:
 Files:
 
 - `README.md`
+- `README.zh-CN.md`
 - `docs/gitlab.md`
 - `docs/ci.md`
 - `docs/output-contract.md`
@@ -391,12 +392,16 @@ Content:
 - Output compatibility policy.
 - OCR compatibility matrix and scheduled test policy.
 - Release process and required gates.
+- English and Chinese README coverage with matching scope, commands, limitations, and release notes.
+- README badge presentation following the local `readme-badges` skill.
 
 Verification:
 
 - [ ] Commands in docs match CLI flags.
 - [ ] Docs state GitLab-only v1 scope.
 - [ ] Docs do not promise category/severity unless OCR output includes those fields.
+- [ ] `README.md` and `README.zh-CN.md` are both updated for public release.
+- [ ] README badges follow the `readme-badges` skill.
 
 ## Task 12: Release Readiness
 
@@ -413,6 +418,8 @@ Required gates:
 - [ ] Local smoke script passes against a real GitLab test MR before public release.
 - [ ] Latest OCR compatibility job passes or the release notes state the known incompatibility.
 - [ ] README includes known limitations.
+- [ ] `README.md` and `README.zh-CN.md` both describe the current release scope.
+- [ ] README badges follow the local `readme-badges` skill.
 - [ ] No tokens or local paths committed.
 - [ ] No AI attribution in commits.
 

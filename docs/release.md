@@ -48,6 +48,8 @@ Do not release if:
 - repeated publish creates duplicate summaries;
 - tokens or local environment details appear in tracked files;
 - release notes do not state the verified OCR version range.
+- README.md and README.zh-CN.md are missing, stale, or inconsistent;
+- README badges do not follow the local readme-badges skill.
 
 ## Release Notes
 
@@ -58,4 +60,5 @@ Each release should include:
 - supported platform scope;
 - known OCR output compatibility limitations;
 - whether GitLab e2e/smoke was run;
+- English and Chinese README update status;
 - any migration notes for config or markers.

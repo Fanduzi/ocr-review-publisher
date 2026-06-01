@@ -50,6 +50,8 @@ Required before public release:
 - Repeated publish updates summary without creating duplicates.
 - Clear operations leave unmarked user comments untouched.
 - Documentation includes limitations and supported platform/version scope.
+- English and Chinese README files are both present and aligned.
+- README badges follow the local `readme-badges` skill.
 
 ## Rendered Comment Checklist
 
