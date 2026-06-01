@@ -37,7 +37,7 @@ type Position struct {
 	BaseSHA      string `json:"base_sha"`
 	StartSHA     string `json:"start_sha"`
 	HeadSHA      string `json:"head_sha"`
-	OldPath      string `json:"old_path"`
+	OldPath      string `json:"old_path,omitempty"`
 	NewPath      string `json:"new_path"`
 	OldLine      int    `json:"old_line,omitempty"`
 	NewLine      int    `json:"new_line,omitempty"`

@@ -61,7 +61,7 @@ func (c *Client) doWithResponse(ctx context.Context, method, path string, in, ou
 		return nil, err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return resp.Header, HTTPError{
 			Method:     method,
