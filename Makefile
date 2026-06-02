@@ -1,4 +1,4 @@
-.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab release-readiness release-snapshot release-check
+.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab smoke-gitlab-real-ocr release-readiness release-snapshot release-check
 
 BINARY := ocr-review-publisher
 VERSION ?= dev
@@ -31,6 +31,17 @@ test-e2e-gitlab:
 		set -a; . ./env.gitlab.local; set +a; \
 	fi; \
 	go test -tags=e2e ./internal/e2e/gitlab -count=1 -v
+
+smoke-gitlab-real-ocr:
+	@if [ -f env.gitlab.local ]; then \
+		set -a; . ./env.gitlab.local; set +a; \
+	fi; \
+	if [ -z "$$OCR_SMOKE_REPO" ]; then \
+		echo "Error: OCR_SMOKE_REPO is required"; \
+		echo "Usage: OCR_SMOKE_REPO=~/path/to/fixture make smoke-gitlab-real-ocr"; \
+		exit 1; \
+	fi; \
+	bash ./scripts/smoke-gitlab-real-ocr.sh
 
 release-readiness: check test-race
 	@echo "==> Checking for uncommitted changes..."
