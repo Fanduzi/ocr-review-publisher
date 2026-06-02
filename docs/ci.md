@@ -8,36 +8,44 @@ Use the publisher in your GitLab CI pipelines to publish [Open Code Review (OCR)
 
 ### Basic Example
 
-The example below uses a custom image with Go and Node.js. If using the official `golang` image, add Node.js installation steps.
+The example below installs Node.js (for the OCR CLI) and Go, then builds the publisher from source. The `golang` image does not include Node.js in its default package repositories, so the example downloads a pre-built Node.js binary.
 
 ```yaml
+stages:
+  - review
+
+image: node:22-bookworm
+
+variables:
+  # Full clone so `origin/main` is available for diff comparison.
+  GIT_DEPTH: "0"
+
 review:
   stage: review
-  image: golang:1.26.1
   before_script:
-    # Install Node.js for OCR CLI
-    - apt-get update && apt-get install -y nodejs npm
-    # Install OCR
+    # Install Go (match the version your project uses).
+    - curl -fsSL https://go.dev/dl/go1.26.1.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local
+    - export PATH=$PATH:/usr/local/go/bin
+    # Install OCR CLI.
     - npm install -g @alibaba-group/open-code-review
-    # Build publisher
-    - go build -o ocr-review-publisher ./cmd/ocr-review-publisher
+    # Build publisher from source.
+    - git clone --depth=1 https://github.com/Fanduzi/ocr-review-publisher.git /tmp/ocr-publisher
+    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
+    - cd "$CI_PROJECT_DIR"
   script:
+    - export PATH=$PATH:/usr/local/go/bin
     - |
       ocr review --from origin/main --to HEAD --format json --audience agent > ocr-result.json
     - |
-      ./ocr-review-publisher publish \
+      ocr-review-publisher publish \
         --platform gitlab \
         --input ocr-result.json \
         --format text
-  variables:
-    GITLAB_TOKEN: ${OCR_GITLAB_TOKEN}
-    CI_PROJECT_ID: ${CI_PROJECT_ID}
-    CI_MERGE_REQUEST_IID: ${CI_MERGE_REQUEST_IID}
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
 
-> **Token note:** Store a Personal Access Token, Project Access Token, or Group Access Token with `api` scope as `OCR_GITLAB_TOKEN` in CI/CD variables. The built-in `CI_JOB_TOKEN` has limited permissions and may not support creating merge request discussions.
+> **Token note:** Store a Personal Access Token, Project Access Token, or Group Access Token with `api` scope as `GITLAB_TOKEN` in CI/CD variables. The built-in `CI_JOB_TOKEN` has limited permissions and may not support creating merge request discussions. The publisher reads `GITLAB_TOKEN` from the environment automatically.
 
 ### With Clear Before Publish
 
@@ -45,9 +53,12 @@ review:
 review:
   stage: review
   script:
-    - ./ocr-review-publisher clear --platform gitlab --scope all || true
     - |
-      ./ocr-review-publisher publish \
+      ocr-review-publisher clear --platform gitlab --scope all || true
+    - |
+      ocr review --from origin/main --to HEAD --format json --audience agent > ocr-result.json
+    - |
+      ocr-review-publisher publish \
         --platform gitlab \
         --input ocr-result.json
 ```
@@ -87,12 +98,33 @@ review:
 
 ## Required Environment Variables
 
+### GitLab Variables (Built-in)
+
+These are set automatically by GitLab CI in merge request pipelines:
+
 | Variable | Description | Source |
 |----------|-------------|--------|
-| `GITLAB_TOKEN` | GitLab API token | CI/CD variable (Personal/Project/Group Access Token with `api` scope) |
 | `CI_PROJECT_ID` | Project ID | Built-in GitLab CI variable |
 | `CI_MERGE_REQUEST_IID` | MR IID | Built-in GitLab CI variable |
 | `CI_SERVER_URL` | GitLab URL | Built-in GitLab CI variable |
+
+### CI/CD Variables to Configure
+
+Set these in **Settings > CI/CD > Variables**:
+
+| Variable | Description | Masked |
+|----------|-------------|--------|
+| `GITLAB_TOKEN` | GitLab API token with `api` scope | Yes |
+
+### OCR LLM Variables
+
+The OCR CLI requires LLM credentials to perform code review. Set these as CI/CD variables:
+
+| Variable | Description | Masked |
+|----------|-------------|--------|
+| `OCR_LLM_URL` | LLM API endpoint URL | No |
+| `OCR_LLM_TOKEN` | LLM API token | Yes |
+| `OCR_LLM_MODEL` | LLM model name | No |
 
 ## GitHub Actions (This Repository)
 
