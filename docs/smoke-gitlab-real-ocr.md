@@ -6,10 +6,13 @@ This document describes the real OCR smoke gate that validates the complete pipe
 
 The real OCR smoke gate (`make smoke-gitlab-real-ocr`) tests the full workflow:
 
-1. Run actual OCR review on a fixture repository
-2. Parse OCR output and publish to GitLab MR
-3. Verify comment quality via GitLab API
-4. Clean up publisher-owned comments
+1. **Pre-clear** all existing publisher-owned comments from the MR
+2. **Verify** marker counts are zero after pre-clear
+3. Run actual **OCR review** on a fixture repository
+4. Parse OCR output and **publish** to GitLab MR
+5. **Verify** comment quality via GitLab API (markers from this run only)
+6. **Clean up** publisher-owned comments (if `OCR_SMOKE_CLEANUP=1`)
+7. **Verify** marker counts are zero after cleanup
 
 This is a **maintainer-only** smoke gate that requires:
 - A local fixture repository with real code changes
@@ -122,15 +125,17 @@ Output files will be saved to `.local/smoke/`:
 
 ## Cleanup Behavior
 
-By default, the smoke gate cleans up all publisher-owned comments after verification.
+The smoke gate always **pre-clears** existing publisher-owned comments before publishing. This ensures that quality assertions only validate comments from the current run, not historical ones. The pre-clear step runs regardless of the `OCR_SMOKE_CLEANUP` setting.
 
-To skip cleanup (for debugging):
+After verification, the smoke gate **cleans up** all publisher-owned comments by default (`OCR_SMOKE_CLEANUP=1`). This removes all comments created during the current run.
+
+To skip the final cleanup (for debugging):
 
 ```bash
 OCR_SMOKE_CLEANUP=0 OCR_SMOKE_REPO=~/path/to/fixture make smoke-gitlab-real-ocr
 ```
 
-**Warning:** Skipping cleanup leaves comments on the MR. Manual cleanup may be needed.
+**Note:** Setting `OCR_SMOKE_CLEANUP=0` only skips the final cleanup. The pre-clear step always runs to ensure a clean test environment. With `OCR_SMOKE_CLEANUP=0`, comments from the current run will remain on the MR for manual inspection.
 
 ## Troubleshooting
 

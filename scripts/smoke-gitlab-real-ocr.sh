@@ -41,6 +41,10 @@ GITLAB_TOKEN="${OCR_E2E_GITLAB_TOKEN:-}"
 PROJECT_ID="${OCR_E2E_GITLAB_PROJECT_ID:-}"
 MR_IID="${OCR_E2E_GITLAB_MR_IID:-}"
 
+# Marker constants (must match internal/render/markers.go)
+INLINE_MARKER="<!-- ocr-review-publisher:inline -->"
+SUMMARY_MARKER="<!-- ocr-review-publisher:summary -->"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,6 +62,119 @@ log_warn() {
 log_error() {
   printf "%b[ERROR]%b %s\n" "$RED" "$NC" "$1" >&2
 }
+
+# Get absolute path for temp dir
+abs_temp_dir() {
+  cd "$TEMP_DIR" && pwd
+}
+
+# --- GitLab API helpers ---
+
+# Fetch a GitLab API page with HTTP status validation.
+# Usage: gitlab_fetch <url> <output_file>
+# Exits on non-2xx status.
+gitlab_fetch() {
+  local url="$1"
+  local output_file="$2"
+  local http_code
+
+  http_code=$(curl -s -w '%{http_code}' \
+    -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+    "$url" -o "$output_file")
+
+  if [[ ! "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    log_error "GitLab API returned HTTP $http_code for: ${url%%\?*}"
+    if [[ -f "$output_file" ]]; then
+      # Print first 200 chars of response body for debugging (no token)
+      head -c 200 "$output_file" >&2
+    fi
+    exit 1
+  fi
+}
+
+# Fetch all discussions with pagination.
+# Usage: fetch_discussions <output_file>
+fetch_discussions() {
+  local output_file="$1"
+  local ad
+  ad=$(abs_temp_dir)
+  local page=1
+  local all_discussions="[]"
+
+  while true; do
+    local page_file="$ad/discussions-page-$page.json"
+    gitlab_fetch \
+      "$GITLAB_URL/api/v4/projects/$PROJECT_ID/merge_requests/$MR_IID/discussions?per_page=100&page=$page" \
+      "$page_file"
+
+    if ! jq empty "$page_file" 2>/dev/null; then
+      log_error "Invalid JSON in discussions page $page"
+      exit 1
+    fi
+
+    local page_count
+    page_count=$(jq 'length' "$page_file")
+    if [[ $page_count -eq 0 ]]; then
+      break
+    fi
+
+    all_discussions=$(jq -s '.[0] + .[1]' <(echo "$all_discussions") "$page_file")
+    page=$((page + 1))
+  done
+
+  echo "$all_discussions" > "$output_file"
+}
+
+# Extract notes from discussions file.
+# Usage: extract_notes <discussions_file> <notes_file>
+extract_notes() {
+  local discussions_file="$1"
+  local notes_file="$2"
+  jq '[.[] | .notes[] | select(.body != null)]' "$discussions_file" > "$notes_file"
+}
+
+# Write marker-filtered notes to separate files.
+# Usage: write_marker_notes <notes_file> <inline_file> <summary_file>
+write_marker_notes() {
+  local notes_file="$1"
+  local inline_file="$2"
+  local summary_file="$3"
+  jq --arg marker "$INLINE_MARKER" '[.[] | select(.body | contains($marker))]' "$notes_file" > "$inline_file"
+  jq --arg marker "$SUMMARY_MARKER" '[.[] | select(.body | contains($marker))]' "$notes_file" > "$summary_file"
+}
+
+# Assert marker counts match expected values.
+# Usage: assert_marker_counts <inline_file> <summary_file> <expected_inline> <expected_summary> <label>
+assert_marker_counts() {
+  local inline_file="$1"
+  local summary_file="$2"
+  local expected_inline="$3"
+  local expected_summary="$4"
+  local label="$5"
+
+  local actual_inline
+  actual_inline=$(jq 'length' "$inline_file")
+  local actual_summary
+  actual_summary=$(jq 'length' "$summary_file")
+
+  log_info "$label: inline=$actual_inline, summary=$actual_summary"
+
+  local failed=false
+  if [[ "$actual_inline" != "$expected_inline" ]]; then
+    log_error "ASSERTION FAILED: $label inline marker count: expected $expected_inline, got $actual_inline"
+    failed=true
+  fi
+  if [[ "$actual_summary" != "$expected_summary" ]]; then
+    log_error "ASSERTION FAILED: $label summary marker count: expected $expected_summary, got $actual_summary"
+    failed=true
+  fi
+
+  if [[ "$failed" == "true" ]]; then
+    exit 1
+  fi
+}
+
+# --- Core functions ---
 
 # Check prerequisites
 check_prerequisites() {
@@ -145,6 +262,45 @@ cleanup_temp_dir() {
   fi
 }
 
+# Pre-clear all publisher-owned comments to ensure clean test environment.
+# This always runs regardless of OCR_SMOKE_CLEANUP setting.
+pre_clear_markers() {
+  log_info "Pre-clearing existing publisher-owned comments..."
+
+  local clear_output
+  clear_output=$(abs_temp_dir)/pre-clear-output.txt
+
+  if ! "$OCR_SMOKE_PUBLISHER_BIN" clear \
+    --platform gitlab \
+    --gitlab-base-url "$GITLAB_URL" \
+    --project-id "$PROJECT_ID" \
+    --mr "$MR_IID" \
+    --token "$GITLAB_TOKEN" \
+    --scope all \
+    > "$clear_output" 2>&1; then
+    log_error "Pre-clear failed"
+    cat "$clear_output" >&2
+    exit 1
+  fi
+
+  log_info "Pre-clear output:"
+  cat "$clear_output"
+
+  # Verify markers are gone
+  log_info "Verifying pre-clear marker counts..."
+  local ad
+  ad=$(abs_temp_dir)
+  local discussions_file="$ad/post-preclear-discussions.json"
+  local notes_file="$ad/post-preclear-notes.json"
+  local inline_file="$ad/post-preclear-inline.json"
+  local summary_file="$ad/post-preclear-summary.json"
+
+  fetch_discussions "$discussions_file"
+  extract_notes "$discussions_file" "$notes_file"
+  write_marker_notes "$notes_file" "$inline_file" "$summary_file"
+  assert_marker_counts "$inline_file" "$summary_file" "0" "0" "Pre-clear"
+}
+
 # Run OCR review on fixture repository
 run_ocr_review() {
   log_info "Running OCR review on fixture repository..."
@@ -152,11 +308,10 @@ run_ocr_review() {
   log_info "  From: $OCR_SMOKE_FROM"
   log_info "  To: $OCR_SMOKE_TO"
 
-  # Use absolute path for output files
-  local abs_temp_dir
-  abs_temp_dir=$(cd "$TEMP_DIR" && pwd)
-  local ocr_output="$abs_temp_dir/ocr-output.json"
-  local ocr_stderr="$abs_temp_dir/ocr-stderr.txt"
+  local ad
+  ad=$(abs_temp_dir)
+  local ocr_output="$ad/ocr-output.json"
+  local ocr_stderr="$ad/ocr-stderr.txt"
 
   cd "$OCR_SMOKE_REPO"
 
@@ -175,7 +330,7 @@ run_ocr_review() {
   cd - > /dev/null
 
   # Remove OCR summary line (starts with [ocr])
-  local clean_output="$abs_temp_dir/ocr-output-clean.json"
+  local clean_output="$ad/ocr-output-clean.json"
   grep -v "^\[ocr\]" "$ocr_output" > "$clean_output" || true
 
   # Validate JSON
@@ -198,19 +353,19 @@ run_ocr_review() {
   log_info "OCR review completed: $comment_count comment(s)"
 
   # Copy clean output to final location
-  cp "$clean_output" "$abs_temp_dir/ocr-output-final.json"
+  cp "$clean_output" "$ad/ocr-output-final.json"
 }
 
 # Publish OCR results to GitLab
 publish_to_gitlab() {
   log_info "Publishing OCR results to GitLab..."
 
-  local abs_temp_dir
-  abs_temp_dir=$(cd "$TEMP_DIR" && pwd)
-  local ocr_input="$abs_temp_dir/ocr-output-final.json"
-  local publish_output="$abs_temp_dir/publish-output.txt"
+  local ad
+  ad=$(abs_temp_dir)
+  local ocr_input="$ad/ocr-output-final.json"
+  local publish_output="$ad/publish-output.txt"
 
-  "$OCR_SMOKE_PUBLISHER_BIN" publish \
+  if ! "$OCR_SMOKE_PUBLISHER_BIN" publish \
     --platform gitlab \
     --gitlab-base-url "$GITLAB_URL" \
     --project-id "$PROJECT_ID" \
@@ -218,11 +373,8 @@ publish_to_gitlab() {
     --token "$GITLAB_TOKEN" \
     --input "$ocr_input" \
     --format text \
-    > "$publish_output" 2>&1
-
-  local exit_code=$?
-  if [[ $exit_code -ne 0 ]]; then
-    log_error "Publisher failed with exit code $exit_code"
+    > "$publish_output" 2>&1; then
+    log_error "Publisher failed"
     cat "$publish_output" >&2
     exit 1
   fi
@@ -231,84 +383,48 @@ publish_to_gitlab() {
   cat "$publish_output"
 }
 
-# Fetch GitLab comments and verify quality
-verify_comments() {
-  log_info "Fetching GitLab comments for quality verification..."
+# Verify post-publish comment quality
+verify_post_publish() {
+  log_info "Verifying post-publish comments..."
 
-  local abs_temp_dir
-  abs_temp_dir=$(cd "$TEMP_DIR" && pwd)
-  local discussions_file="$abs_temp_dir/discussions.json"
-  local notes_file="$abs_temp_dir/notes.json"
+  local ad
+  ad=$(abs_temp_dir)
+  local discussions_file="$ad/post-publish-discussions.json"
+  local notes_file="$ad/post-publish-notes.json"
+  local inline_file="$ad/post-publish-inline.json"
+  local summary_file="$ad/post-publish-summary.json"
 
-  # Fetch all discussions with pagination
-  local page=1
-  local all_discussions="[]"
-  while true; do
-    local page_file="$abs_temp_dir/discussions-page-$page.json"
-    curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-      "$GITLAB_URL/api/v4/projects/$PROJECT_ID/merge_requests/$MR_IID/discussions?per_page=100&page=$page" > "$page_file"
-
-    if ! jq empty "$page_file" 2>/dev/null; then
-      log_error "Failed to fetch discussions page $page or invalid JSON"
-      cat "$page_file" >&2
-      exit 1
-    fi
-
-    local page_count
-    page_count=$(jq 'length' "$page_file")
-    if [[ $page_count -eq 0 ]]; then
-      break
-    fi
-
-    all_discussions=$(jq -s '.[0] + .[1]' <(echo "$all_discussions") "$page_file")
-    page=$((page + 1))
-  done
-
-  # Save all discussions
-  echo "$all_discussions" > "$discussions_file"
-
-  # Extract all notes (filter out null bodies)
-  jq '[.[] | .notes[] | select(.body != null)]' "$discussions_file" > "$notes_file"
+  fetch_discussions "$discussions_file"
+  extract_notes "$discussions_file" "$notes_file"
 
   local total_notes
   total_notes=$(jq 'length' "$notes_file")
   log_info "Total notes found: $total_notes"
 
-  # Find OCR marker comments
-  local inline_marker="<!-- ocr-review-publisher:inline -->"
-  local summary_marker="<!-- ocr-review-publisher:summary -->"
-
-  local inline_notes="$abs_temp_dir/inline-notes.json"
-  local summary_notes="$abs_temp_dir/summary-notes.json"
-
-  jq --arg marker "$inline_marker" '[.[] | select(.body | contains($marker))]' "$notes_file" > "$inline_notes"
-  jq --arg marker "$summary_marker" '[.[] | select(.body | contains($marker))]' "$notes_file" > "$summary_notes"
+  write_marker_notes "$notes_file" "$inline_file" "$summary_file"
 
   local inline_count
-  inline_count=$(jq 'length' "$inline_notes")
+  inline_count=$(jq 'length' "$inline_file")
   local summary_count
-  summary_count=$(jq 'length' "$summary_notes")
+  summary_count=$(jq 'length' "$summary_file")
 
-  log_info "OCR marker comments found:"
-  log_info "  Inline: $inline_count"
-  log_info "  Summary: $summary_count"
+  log_info "Post-publish marker counts: inline=$inline_count, summary=$summary_count"
 
-  # Quality assertions
+  # Core assertions: must have at least some markers
+  if [[ $inline_count -eq 0 && $summary_count -eq 0 ]]; then
+    log_error "ASSERTION FAILED: No OCR marker comments found after publish"
+    exit 1
+  fi
+
+  if [[ $summary_count -ne 1 ]]; then
+    log_error "ASSERTION FAILED: Expected exactly 1 summary marker, got $summary_count"
+    exit 1
+  fi
+
+  # Quality assertions on the notes
   local assertions_passed=true
 
-  # Assertion 1: At least 1 inline or summary comment
-  if [[ $inline_count -eq 0 && $summary_count -eq 0 ]]; then
-    log_error "ASSERTION FAILED: No OCR marker comments found"
-    assertions_passed=false
-  fi
-
-  # Assertion 2: Summary marker exists
-  if [[ $summary_count -eq 0 ]]; then
-    log_error "ASSERTION FAILED: No summary marker comment found"
-    assertions_passed=false
-  fi
-
-  # Assertion 3: No 'line_code can't be blank' errors
+  # No 'line_code can't be blank' errors
   local line_code_errors
   line_code_errors=$(jq --arg pattern "line_code can't be blank" '[.[] | select(.body | contains($pattern))]' "$notes_file")
   if [[ $(echo "$line_code_errors" | jq 'length') -gt 0 ]]; then
@@ -316,7 +432,7 @@ verify_comments() {
     assertions_passed=false
   fi
 
-  # Assertion 4: No suggestion fence
+  # No suggestion fence
   local suggestion_pattern='```suggestion'
   local suggestion_fences
   suggestion_fences=$(jq --arg pattern "$suggestion_pattern" '[.[] | select(.body | contains($pattern))]' "$notes_file")
@@ -325,17 +441,17 @@ verify_comments() {
     assertions_passed=false
   fi
 
-  # Assertion 5: Go files should have language fence
+  # Go files should have language fence
   if [[ $inline_count -gt 0 ]]; then
     local go_fence='```go'
     local go_files
-    go_files=$(jq --arg fence "$go_fence" '[.[] | select(.body | contains($fence))]' "$inline_notes")
+    go_files=$(jq --arg fence "$go_fence" '[.[] | select(.body | contains($fence))]' "$inline_file")
     local go_file_count
     go_file_count=$(echo "$go_files" | jq 'length')
 
     # Check if any inline comments are for .go files
     local has_go_comments
-    has_go_comments=$(jq '[.[] | select(.position != null and .position.old_path != null and (.position.old_path | test("\\.go$")))]' "$inline_notes")
+    has_go_comments=$(jq '[.[] | select(.position != null and .position.new_path != null and (.position.new_path | test("\\.go$")))]' "$inline_file")
     local has_go_count
     has_go_count=$(echo "$has_go_comments" | jq 'length')
 
@@ -345,11 +461,11 @@ verify_comments() {
     fi
   fi
 
-  # Assertion 6: Existing code in fenced blocks (check for fenced code in inline notes)
+  # Existing code in fenced blocks
   if [[ $inline_count -gt 0 ]]; then
     local fence_marker='```'
     local fenced_blocks
-    fenced_blocks=$(jq --arg marker "$fence_marker" '[.[] | select(.body | contains($marker))]' "$inline_notes")
+    fenced_blocks=$(jq --arg marker "$fence_marker" '[.[] | select(.body | contains($marker))]' "$inline_file")
     local fenced_count
     fenced_count=$(echo "$fenced_blocks" | jq 'length')
 
@@ -359,11 +475,11 @@ verify_comments() {
     fi
   fi
 
-  # Assertion 7: Review context details block
+  # Review context details block
   if [[ $inline_count -gt 0 ]]; then
     local context_marker='<details><summary>Review context'
     local context_blocks
-    context_blocks=$(jq --arg marker "$context_marker" '[.[] | select(.body | contains($marker))]' "$inline_notes")
+    context_blocks=$(jq --arg marker "$context_marker" '[.[] | select(.body | contains($marker))]' "$inline_file")
     local context_count
     context_count=$(echo "$context_blocks" | jq 'length')
 
@@ -373,36 +489,18 @@ verify_comments() {
     fi
   fi
 
-  # Assertion 8: Diagnostics block if warnings exist
+  # Diagnostics block if warnings exist
   if [[ $summary_count -gt 0 ]]; then
     local diagnostics_marker='<details><summary>Publish diagnostics'
     local diagnostics_blocks
-    diagnostics_blocks=$(jq --arg marker "$diagnostics_marker" '[.[] | select(.body | contains($marker))]' "$summary_notes")
+    diagnostics_blocks=$(jq --arg marker "$diagnostics_marker" '[.[] | select(.body | contains($marker))]' "$summary_file")
     local diagnostics_count
     diagnostics_count=$(echo "$diagnostics_blocks" | jq 'length')
 
-    # This is optional - only check if there are warnings
     if [[ $diagnostics_count -eq 0 ]]; then
       log_warn "No Publish diagnostics block found - may be OK if no warnings"
     fi
   fi
-
-  # Assertion 9: Duplicate publish check (optional)
-  if [[ $summary_count -gt 1 ]]; then
-    log_error "ASSERTION FAILED: Multiple summary notes found: $summary_count"
-    assertions_passed=false
-  fi
-
-  # Save verification results
-  local results_file="$abs_temp_dir/verification-results.json"
-  cat > "$results_file" <<EOF
-{
-  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "inline_count": $inline_count,
-  "summary_count": $summary_count,
-  "assertions_passed": $assertions_passed
-}
-EOF
 
   if [[ "$assertions_passed" != "true" ]]; then
     log_error "Quality assertions FAILED"
@@ -415,21 +513,44 @@ EOF
 # Cleanup publisher-owned comments
 cleanup_comments() {
   if [[ "$OCR_SMOKE_CLEANUP" != "1" ]]; then
-    log_info "Skipping cleanup - OCR_SMOKE_CLEANUP=0"
+    log_info "Skipping final cleanup - OCR_SMOKE_CLEANUP=0"
     return
   fi
 
   log_info "Cleaning up publisher-owned comments..."
 
-  "$OCR_SMOKE_PUBLISHER_BIN" clear \
+  local clear_output
+  clear_output=$(abs_temp_dir)/cleanup-output.txt
+
+  if ! "$OCR_SMOKE_PUBLISHER_BIN" clear \
     --platform gitlab \
     --gitlab-base-url "$GITLAB_URL" \
     --project-id "$PROJECT_ID" \
     --mr "$MR_IID" \
     --token "$GITLAB_TOKEN" \
-    --scope all
+    --scope all \
+    > "$clear_output" 2>&1; then
+    log_error "Cleanup failed"
+    cat "$clear_output" >&2
+    exit 1
+  fi
 
-  log_info "Cleanup completed"
+  log_info "Cleanup output:"
+  cat "$clear_output"
+
+  # Verify markers are gone after cleanup
+  log_info "Verifying post-cleanup marker counts..."
+  local ad
+  ad=$(abs_temp_dir)
+  local discussions_file="$ad/post-cleanup-discussions.json"
+  local notes_file="$ad/post-cleanup-notes.json"
+  local inline_file="$ad/post-cleanup-inline.json"
+  local summary_file="$ad/post-cleanup-summary.json"
+
+  fetch_discussions "$discussions_file"
+  extract_notes "$discussions_file" "$notes_file"
+  write_marker_notes "$notes_file" "$inline_file" "$summary_file"
+  assert_marker_counts "$inline_file" "$summary_file" "0" "0" "Post-cleanup"
 }
 
 # Main execution
@@ -448,9 +569,10 @@ main() {
   log_info "  MR IID: $MR_IID"
   log_info "  Cleanup: $OCR_SMOKE_CLEANUP"
 
+  pre_clear_markers
   run_ocr_review
   publish_to_gitlab
-  verify_comments
+  verify_post_publish
   cleanup_comments
 
   log_info "Real OCR smoke gate completed successfully!"
