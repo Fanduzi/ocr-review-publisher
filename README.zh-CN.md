@@ -10,7 +10,13 @@
 
 `ocr-review-publisher` 是 [Open Code Review](https://github.com/alibaba/open-code-review) 输出的平台发布层。
 
-Open Code Review 生成代码审查发现。本项目消费其机器可读输出，并将这些发现作为高质量的 GitLab 合并请求评论发布。
+Open Code Review 生成代码审查发现。本项目消费其机器可读输出，并将这些发现发布为 GitLab 合并请求评论。
+
+## 背景
+
+这个项目的起点，是我们曾尝试把平台评论发布能力直接贡献给 Open Code Review（[PR #15](https://github.com/alibaba/open-code-review/pull/15)）。维护者更倾向于让 OCR 保持为专注生成审查结果的轻量 CLI，把平台集成放在外部脚本或 CI Action 中（[PR #11](https://github.com/alibaba/open-code-review/pull/11)）。
+
+因此我们把发布能力拆成独立工具：OCR 负责生成审查结果，`ocr-review-publisher` 负责把结果发布到 GitLab，提供标记所有权管理、摘要生命周期控制和 CI 冒烟门禁。
 
 ## 当前范围
 

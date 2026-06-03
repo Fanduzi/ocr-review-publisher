@@ -10,7 +10,13 @@
 
 `ocr-review-publisher` is a platform publishing layer for [Open Code Review](https://github.com/alibaba/open-code-review) output.
 
-Open Code Review generates review findings. This project consumes its machine-readable output and publishes those findings as high-quality GitLab merge request comments.
+Open Code Review generates review findings. This project consumes its machine-readable output and publishes those findings as GitLab merge request comments.
+
+## Background
+
+This project started after an attempt to add platform publishing directly to Open Code Review ([PR #15](https://github.com/alibaba/open-code-review/pull/15)). The OCR maintainers preferred keeping OCR focused on review generation — a lightweight CLI with few dependencies — and leaving comment publishing to external scripts or CI actions ([PR #11](https://github.com/alibaba/open-code-review/pull/11)).
+
+`ocr-review-publisher` follows that boundary: OCR produces findings; this tool publishes them to GitLab with marker-based ownership, summary lifecycle management, and CI smoke gates.
 
 ## Current Scope
 
