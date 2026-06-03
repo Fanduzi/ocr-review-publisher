@@ -60,9 +60,26 @@ Fixtures must not contain local paths, tokens, private URLs, or real GitLab info
 The project uses two levels of CI:
 
 - **Pull request CI** (`.github/workflows/ci.yml`): runs `make check` which includes `make test-compat`, unit tests, vet, build, and format checks.
-- **Scheduled OCR compatibility CI** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility tests weekly. On manual dispatch, optionally captures live OCR output if LLM credentials are configured as GitHub secrets.
+- **Scheduled OCR compatibility CI** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility tests weekly. On manual dispatch, optionally captures live OCR output if LLM credentials are configured.
 
 Scheduled compatibility CI does not require GitLab tokens or platform access. Fixture compatibility always runs; live capture is opt-in and skips gracefully when credentials are absent.
+
+### Required GitHub Actions Secrets and Variables
+
+Live capture requires these secrets (Settings > Secrets and variables > Actions):
+
+| Name | Type | Description |
+|------|------|-------------|
+| `OCR_LLM_URL` | secret | LLM API endpoint URL |
+| `OCR_LLM_TOKEN` | secret | LLM API token |
+| `OCR_LLM_MODEL` | secret | LLM model name |
+| `OCR_USE_ANTHROPIC` | variable | Optional. Set to `true` to use Anthropic protocol |
+
+These names match the Open Code Review LLM resolver contract (verified against `internal/llm/resolver.go`). The resolver also supports Claude Code env vars (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`) as a fallback.
+
+### Live Capture Direct Validation
+
+When live capture runs, the workflow directly parses `/tmp/ocr-latest.json` using `TestCapturedOCROutputParses`. This verifies the captured output is valid OCR JSON, not just that checked-in fixtures still parse.
 
 ## Release Requirement
 

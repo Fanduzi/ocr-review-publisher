@@ -191,6 +191,35 @@ func TestFutureFieldsFixtureStillParses(t *testing.T) {
 	}
 }
 
+// TestCapturedOCROutputParses validates a live-captured OCR output file when
+// OCR_COMPAT_CAPTURED_OUTPUT is set. This test is used by the OCR Compatibility
+// CI workflow to directly verify captured output, not just checked-in fixtures.
+func TestCapturedOCROutputParses(t *testing.T) {
+	path := os.Getenv("OCR_COMPAT_CAPTURED_OUTPUT")
+	if path == "" {
+		t.Skip("OCR_COMPAT_CAPTURED_OUTPUT not set, skipping")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read captured output %s: %v", path, err)
+	}
+
+	result, err := ocroutput.Parse(data)
+	if err != nil {
+		t.Fatalf("parse captured output: %v", err)
+	}
+	if result == nil {
+		t.Fatal("parse returned nil result")
+	}
+
+	// Status may or may not be present depending on OCR version.
+	// Findings may be empty if OCR found nothing to comment on.
+	// The key assertion is that the file parses without error.
+	t.Logf("captured output: status=%q, findings=%d, warnings=%d",
+		result.Status, len(result.Findings), len(result.Warnings))
+}
+
 // TestMalformedCompatibilityFixtureRejected verifies malformed JSON is rejected.
 func TestMalformedCompatibilityFixtureRejected(t *testing.T) {
 	_, err := ocroutput.Parse([]byte(`{"status": "success", "comments": [}`))

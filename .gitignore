@@ -6,3 +6,6 @@ coverage.out
 /ocr-review-publisher
 docs/internal/
 env*.local
+.agents
+.claude
+skills-lock.json

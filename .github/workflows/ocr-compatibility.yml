@@ -39,19 +39,24 @@ jobs:
 
       - name: Capture latest OCR output
         env:
-          OCR_LLM_API_KEY: ${{ secrets.OCR_LLM_API_KEY }}
+          OCR_LLM_URL: ${{ secrets.OCR_LLM_URL }}
+          OCR_LLM_TOKEN: ${{ secrets.OCR_LLM_TOKEN }}
+          OCR_LLM_MODEL: ${{ secrets.OCR_LLM_MODEL }}
+          OCR_USE_ANTHROPIC: ${{ vars.OCR_USE_ANTHROPIC }}
         run: |
-          if [ -z "$OCR_LLM_API_KEY" ]; then
-            echo "No LLM credentials configured, skipping live capture"
+          if [ -z "$OCR_LLM_URL" ] || [ -z "$OCR_LLM_TOKEN" ] || [ -z "$OCR_LLM_MODEL" ]; then
+            echo "::warning::LLM credentials not fully configured (OCR_LLM_URL, OCR_LLM_TOKEN, OCR_LLM_MODEL), skipping live capture"
             exit 0
           fi
           bash scripts/capture-ocr-output.sh --ocr-version latest --output /tmp/ocr-latest.json
           echo "Captured OCR output successfully"
 
       - name: Validate captured output
+        env:
+          OCR_COMPAT_CAPTURED_OUTPUT: /tmp/ocr-latest.json
         run: |
           if [ -f /tmp/ocr-latest.json ]; then
-            go test ./internal/compat -count=1 -v -run TestCompatibilityFixturesParse
+            go test ./internal/compat -count=1 -v -run TestCapturedOCROutputParses
           else
-            echo "No captured output, skipping validation"
+            echo "No captured output, skipping direct validation"
           fi
