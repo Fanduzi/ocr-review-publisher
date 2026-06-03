@@ -106,7 +106,7 @@ echo "==> Working directory: $WORK_DIR"
 SAMPLE_REPO="$WORK_DIR/sample-repo"
 mkdir -p "$SAMPLE_REPO"
 cd "$SAMPLE_REPO"
-git init -q
+git init -q -b main
 git config user.email "test@example.com"
 git config user.name "Test"
 
