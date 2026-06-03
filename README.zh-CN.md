@@ -8,15 +8,11 @@
 
 [![Quality Gates](https://img.shields.io/badge/Quality_Gates-informational)](docs/quality-gates.md) [![OCR Compatibility](https://img.shields.io/badge/OCR_Compatibility-informational)](docs/ocr-compatibility.md) [![Release Process](https://img.shields.io/badge/Release_Process-success)](docs/release.md) [![GitLab E2E](https://img.shields.io/badge/GitLab_E2E-informational)](docs/e2e-gitlab.md) [![Contributing](https://img.shields.io/badge/Contributing-important)](CONTRIBUTING.md)
 
-`ocr-review-publisher` 是 [Open Code Review](https://github.com/alibaba/open-code-review) 输出的平台发布层。
-
-Open Code Review 生成代码审查发现。本项目消费其机器可读输出，并将这些发现发布为 GitLab 合并请求评论。
+`ocr-review-publisher` 是 [Open Code Review](https://github.com/alibaba/open-code-review) 的发布层。Open Code Review 生成代码审查发现，本项目读取其输出并发布为 GitLab MR 评论。
 
 ## 背景
 
-这个项目的起点，是我们曾尝试把平台评论发布能力直接贡献给 Open Code Review（[PR #15](https://github.com/alibaba/open-code-review/pull/15)）。维护者更倾向于让 OCR 保持为专注生成审查结果的轻量 CLI，把平台集成放在外部脚本或 CI Action 中（[PR #11](https://github.com/alibaba/open-code-review/pull/11)）。
-
-因此我们把发布能力拆成独立工具：OCR 负责生成审查结果，`ocr-review-publisher` 负责把结果发布到 GitLab，提供标记所有权管理、摘要生命周期控制和 CI 冒烟门禁。
+我们最初尝试把发布能力直接贡献给 Open Code Review（[PR #15](https://github.com/alibaba/open-code-review/pull/15)），但维护者倾向于让 OCR 保持轻量 CLI 定位，平台集成放到外部（[PR #11](https://github.com/alibaba/open-code-review/pull/11)）。于是发布能力被拆成独立工具：OCR 负责生成审查结果，`ocr-review-publisher` 负责发布到 GitLab，包含标记管理、摘要控制和 CI 冒烟门禁。
 
 ## 当前范围
 
@@ -24,15 +20,9 @@ Open Code Review 生成代码审查发现。本项目消费其机器可读输出
 
 - OCR 是唯一支持的审查生产者。
 - GitLab 是唯一支持的发布平台。
-- 项目专注于评论渲染、安全内联锚点、摘要更新、标记范围清除操作和 CI 友好执行。
+- 专注于评论渲染、安全内联锚点、摘要更新、标记清除和 CI 集成。
 
-**当前不支持：**
-
-- GitHub PR 发布
-- Webhook/服务器模式
-- 斜杠命令触发器
-- 一键平台建议
-- 严重性/类别门控（除非 OCR 输出提供这些字段）
+不支持 GitHub PR、Webhook、斜杠命令、一键平台建议或严重性/类别门控（除非 OCR 输出提供这些字段）。
 
 ## 安装
 
@@ -212,7 +202,7 @@ make release-readiness # 运行严格发布前门控
 
 - 仅支持 Open Code Review 输出（不支持其他审查引擎）
 - 仅支持 GitLab MR 发布（不支持 GitHub PR）
-- 不改进 OCR 的审查智能；仅发布其发现
+- 不增强 OCR 的审查智能，只发布其发现
 - 类别/严重性徽章仅在 OCR 输出提供这些字段时出现
-- 无 Webhook/服务器模式
-- 无一键平台建议
+- 不支持 Webhook/服务器模式
+- 不支持一键平台建议

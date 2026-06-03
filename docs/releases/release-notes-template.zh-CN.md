@@ -60,8 +60,8 @@ sha256sum -c ocr-review-publisher_X.Y.Z_checksums.txt
 
 - 仅支持 Open Code Review 输出
 - 仅支持 GitLab MR 发布（不支持 GitHub PR）
-- 无 webhook/服务器模式
-- 无一键平台建议
+- 不支持 webhook/服务器模式
+- 不支持一键平台建议
 
 ## 升级说明
 
