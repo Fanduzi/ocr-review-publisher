@@ -285,7 +285,12 @@ review:
     - export PATH=$PATH:/usr/local/go/bin
     - ocr review --from origin/main --to HEAD --format json --audience agent > /tmp/ocr-result.json
     - |
-      ocr-review-publisher clear --platform gitlab --scope all || true
+      ocr-review-publisher clear \
+        --platform gitlab \
+        --gitlab-base-url "$CI_GITLAB_URL" \
+        --project-id "$CI_PROJECT_ID" \
+        --mr "$CI_MR_IID" \
+        --scope all || true
     - |
       ocr-review-publisher publish \
         --platform gitlab \
@@ -353,6 +358,7 @@ trigger_pipeline() {
     --arg mr "$MR_IID" \
     --arg pid "$PROJECT_ID" \
     --arg url "$GITLAB_INTERNAL_URL" \
+    --arg gitlab_token "$GITLAB_TOKEN" \
     --arg llm_url "$LLM_URL" \
     --arg llm_token "$LLM_TOKEN" \
     --arg llm_model "$LLM_MODEL" \
@@ -362,6 +368,7 @@ trigger_pipeline() {
         {key: "CI_MR_IID", value: $mr},
         {key: "CI_PROJECT_ID", value: $pid},
         {key: "CI_GITLAB_URL", value: $url},
+        {key: "OCR_GITLAB_TOKEN", value: $gitlab_token},
         {key: "OCR_LLM_URL", value: $llm_url},
         {key: "OCR_LLM_TOKEN", value: $llm_token},
         {key: "OCR_LLM_MODEL", value: $llm_model}
@@ -374,9 +381,12 @@ trigger_pipeline() {
     "$payload")
 
   PIPELINE_ID=$(echo "$result" | jq -r '.id')
-  local pipeline_url="${GITLAB_URL}/dba/kodus-test/-/pipelines/$PIPELINE_ID"
+  PIPELINE_URL=$(echo "$result" | jq -r '.web_url // empty')
+  if [[ -z "$PIPELINE_URL" ]]; then
+    PIPELINE_URL="${GITLAB_URL}/pipelines/$PIPELINE_ID"
+  fi
   log_info "Pipeline $PIPELINE_ID triggered"
-  log_info "URL: $pipeline_url"
+  log_info "URL: $PIPELINE_URL"
 }
 
 poll_pipeline() {
@@ -429,7 +439,10 @@ get_job_info() {
   JOB_STATUS=$(echo "$jobs" | jq -r '.[0].status // "unknown"')
 
   if [[ -n "$JOB_ID" ]]; then
-    JOB_URL="${GITLAB_URL}/dba/kodus-test/-/jobs/$JOB_ID"
+    JOB_URL=$(echo "$jobs" | jq -r '.[0].web_url // empty')
+    if [[ -z "$JOB_URL" ]]; then
+      JOB_URL="${GITLAB_URL}/jobs/$JOB_ID"
+    fi
     log_info "Job $JOB_ID: $JOB_STATUS"
     log_info "Job URL: $JOB_URL"
   fi
@@ -440,9 +453,19 @@ fetch_job_log() {
   encoded_pid=$(urlencode "$PROJECT_ID")
   local log_output="$WORK_DIR/job-$JOB_ID.log"
 
-  curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  local http_code
+  http_code=$(curl -s -w '%{http_code}' \
+    -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
     "$GITLAB_URL/api/v4/projects/$encoded_pid/jobs/$JOB_ID/trace" \
-    -o "$log_output"
+    -o "$log_output")
+
+  if [[ ! "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    log_error "Failed to fetch job log: HTTP $http_code"
+    if [[ -f "$log_output" ]]; then
+      head -c 200 "$log_output" >&2
+    fi
+    return 1
+  fi
 
   echo "$log_output"
 }
@@ -622,14 +645,11 @@ verify_cleanup() {
 report() {
   log_step "Report"
 
-  local pipeline_url="${GITLAB_URL}/dba/kodus-test/-/pipelines/$PIPELINE_ID"
-  local mr_url="${GITLAB_URL}/dba/kodus-test/-/merge_requests/$MR_IID"
-
   cat <<EOF
-Pipeline:     $pipeline_url
+Pipeline:     ${PIPELINE_URL:-N/A}
 Job:          ${JOB_URL:-N/A}
 Branch:       $SMOKE_BRANCH
-MR:           $mr_url
+MR:           ${MR_URL:-N/A}
 Cleanup mode: $([ "$CLEANUP" == "1" ] && echo "enabled" || echo "disabled")
 
 Marker counts:
@@ -652,6 +672,15 @@ main() {
 
   check_prerequisites
   check_runner
+
+  # Fetch MR URL from API for reporting.
+  local mr_json
+  mr_json=$(get_mr_info)
+  MR_URL=$(echo "$mr_json" | jq -r '.web_url // empty')
+  if [[ -z "$MR_URL" ]]; then
+    MR_URL="${GITLAB_URL}/merge_requests/$MR_IID"
+  fi
+  log_info "MR URL: $MR_URL"
 
   WORK_DIR=$(mktemp -d)
   trap cleanup_work_dir EXIT

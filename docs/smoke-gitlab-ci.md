@@ -65,7 +65,11 @@ The CI config installs Node.js, Go, the OCR CLI, and builds the publisher from s
 
 ### Pipeline Trigger
 
-The pipeline is triggered via the GitLab API (not a merge request event), so all required variables are passed explicitly. This avoids reliance on `CI_MERGE_REQUEST_IID` which is not set for API-triggered pipelines.
+The pipeline is triggered via the GitLab API (not a merge request event), so all required variables are passed explicitly as pipeline variables. This includes `OCR_GITLAB_TOKEN` for the publisher, `OCR_LLM_URL`/`OCR_LLM_TOKEN`/`OCR_LLM_MODEL` for OCR, and `CI_GITLAB_URL`/`CI_PROJECT_ID`/`CI_MR_IID` for the job. This avoids reliance on project CI/CD variables or `CI_MERGE_REQUEST_IID` (which is not set for API-triggered pipelines).
+
+### URL Reporting
+
+The script uses `web_url` fields from GitLab API responses (pipeline, job, MR) for all reported URLs. No project paths are hardcoded in the script.
 
 ### Quality Assertions
 
