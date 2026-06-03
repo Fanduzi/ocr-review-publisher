@@ -151,9 +151,17 @@ git commit -q -m "add name parameter"
 echo "==> Running OCR @alibaba-group/open-code-review@$OCR_VERSION"
 OCR_PACKAGE="@alibaba-group/open-code-review"
 if [[ "$OCR_VERSION" == "latest" ]]; then
-  npx -y "$OCR_PACKAGE" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"
+  if ! npx -y "$OCR_PACKAGE" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"; then
+    echo "Error: OCR review failed" >&2
+    cat "$WORK_DIR/ocr-stderr.txt" >&2
+    exit 1
+  fi
 else
-  npx -y "$OCR_PACKAGE@$OCR_VERSION" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"
+  if ! npx -y "$OCR_PACKAGE@$OCR_VERSION" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"; then
+    echo "Error: OCR review failed" >&2
+    cat "$WORK_DIR/ocr-stderr.txt" >&2
+    exit 1
+  fi
 fi
 
 # Check output exists and is non-empty
