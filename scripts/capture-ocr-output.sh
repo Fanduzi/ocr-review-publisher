@@ -147,21 +147,31 @@ GO
 git add main.go
 git commit -q -m "add name parameter"
 
-# Install and run OCR via npx
-echo "==> Running OCR @alibaba-group/open-code-review@$OCR_VERSION"
+# Install and run OCR
+echo "==> Installing OCR @alibaba-group/open-code-review@$OCR_VERSION"
 OCR_PACKAGE="@alibaba-group/open-code-review"
 if [[ "$OCR_VERSION" == "latest" ]]; then
-  if ! npx -y "$OCR_PACKAGE" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"; then
-    echo "Error: OCR review failed" >&2
-    cat "$WORK_DIR/ocr-stderr.txt" >&2
-    exit 1
-  fi
+  npm install -q "$OCR_PACKAGE" 2>/dev/null
 else
-  if ! npx -y "$OCR_PACKAGE@$OCR_VERSION" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"; then
-    echo "Error: OCR review failed" >&2
-    cat "$WORK_DIR/ocr-stderr.txt" >&2
-    exit 1
-  fi
+  npm install -q "$OCR_PACKAGE@$OCR_VERSION" 2>/dev/null
+fi
+
+# Find OCR binary
+OCR_BIN=""
+if [[ -x node_modules/.bin/ocr ]]; then
+  OCR_BIN="node_modules/.bin/ocr"
+elif [[ -x node_modules/@alibaba-group/open-code-review/bin/ocr ]]; then
+  OCR_BIN="node_modules/@alibaba-group/open-code-review/bin/ocr"
+else
+  echo "Error: OCR binary not found after installation" >&2
+  exit 1
+fi
+
+echo "==> Running OCR review"
+if ! "$OCR_BIN" review --from main --to HEAD --format json --audience agent > "$WORK_DIR/ocr-output.json" 2>"$WORK_DIR/ocr-stderr.txt"; then
+  echo "Error: OCR review failed" >&2
+  cat "$WORK_DIR/ocr-stderr.txt" >&2
+  exit 1
 fi
 
 # Check output exists and is non-empty
