@@ -54,6 +54,7 @@ scripts/capture-ocr-output.sh --ocr-version latest --output testdata/ocr/latest.
 - `empty-comments.json` - 空评论数组的 OCR 输出
 - `with-warnings.json` - 含警告的 OCR 输出
 - `future-fields.json` - 含 category、severity、confidence 及未知未来字段的 OCR 输出
+- `ocr-v1.1.13-live.json` - OCR v1.1.13 实时运行的清理后真实输出
 
 固定不得包含本地路径、令牌、私有 URL 或真实 GitLab 信息。
 

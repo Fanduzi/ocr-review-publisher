@@ -191,6 +191,38 @@ func TestFutureFieldsFixtureStillParses(t *testing.T) {
 	}
 }
 
+// TestLiveFixtureShape verifies the sanitized live OCR fixture has expected shape.
+func TestLiveFixtureShape(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(fixtureDir, "ocr-v1.1.13-live.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ocroutput.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected status success, got %q", result.Status)
+	}
+	if len(result.Findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d", len(result.Findings))
+	}
+	for i, f := range result.Findings {
+		if f.Path == "" {
+			t.Errorf("finding %d: expected path", i)
+		}
+		if f.Content == "" {
+			t.Errorf("finding %d: expected content", i)
+		}
+		if f.ExistingCode == "" {
+			t.Errorf("finding %d: expected existing_code", i)
+		}
+		if f.SuggestionCode == "" {
+			t.Errorf("finding %d: expected suggestion_code", i)
+		}
+	}
+}
+
 // TestCapturedOCROutputParses validates a live-captured OCR output file when
 // OCR_COMPAT_CAPTURED_OUTPUT is set. This test is used by the OCR Compatibility
 // CI workflow to directly verify captured output, not just checked-in fixtures.

@@ -52,6 +52,7 @@ Fixtures are stored under `testdata/ocr/`:
 - `empty-comments.json` - OCR output with empty comments array
 - `with-warnings.json` - OCR output with warnings
 - `future-fields.json` - OCR output with category, severity, confidence, and unknown future fields
+- `ocr-v1.1.13-live.json` - Sanitized real OCR output from a live run against OCR v1.1.13
 
 Fixtures must not contain local paths, tokens, private URLs, or real GitLab info.
 
