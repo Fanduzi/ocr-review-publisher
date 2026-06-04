@@ -6,9 +6,9 @@ This document covers CI/CD integration for `ocr-review-publisher`.
 
 Use the publisher in your GitLab CI pipelines to publish [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) findings to merge requests.
 
-### Basic Example
+### Basic Example (Release Binary)
 
-The example below installs Node.js (for the OCR CLI) and Go, then builds the publisher from source. The `golang` image does not include Node.js in its default package repositories, so the example downloads a pre-built Node.js binary.
+The example below installs Node.js (for the OCR CLI) and Go, then downloads a pre-built `ocr-review-publisher` binary from GitHub Releases. No source clone or build step required.
 
 ```yaml
 stages:
@@ -19,6 +19,7 @@ image: node:22-bookworm
 variables:
   # Full clone so `origin/main` is available for diff comparison.
   GIT_DEPTH: "0"
+  OCR_PUBLISHER_VERSION: "v0.1.1"
 
 review:
   stage: review
@@ -28,10 +29,13 @@ review:
     - export PATH=$PATH:/usr/local/go/bin
     # Install OCR CLI.
     - npm install -g @alibaba-group/open-code-review
-    # Build publisher from source.
-    - git clone --depth=1 https://github.com/Fanduzi/ocr-review-publisher.git /tmp/ocr-publisher
-    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
-    - cd "$CI_PROJECT_DIR"
+    # Install ocr-review-publisher from GitHub Releases.
+    - PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+    - VERSION_NUM=${OCR_PUBLISHER_VERSION#v}
+    - curl -fsSL -o /tmp/publisher.tar.gz "https://github.com/Fanduzi/ocr-review-publisher/releases/download/${OCR_PUBLISHER_VERSION}/ocr-review-publisher_${VERSION_NUM}_${PLATFORM}.tar.gz"
+    - curl -fsSL -o /tmp/checksums.txt "https://github.com/Fanduzi/ocr-review-publisher/releases/download/${OCR_PUBLISHER_VERSION}/ocr-review-publisher_${VERSION_NUM}_checksums.txt"
+    - cd /tmp && sha256sum -c --ignore-missing checksums.txt && cd "$CI_PROJECT_DIR"
+    - tar xzf /tmp/publisher.tar.gz -C /usr/local/bin ocr-review-publisher
   script:
     - export PATH=$PATH:/usr/local/go/bin
     - |
@@ -43,6 +47,21 @@ review:
         --format text
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+```
+
+> **Note:** The publisher binary is installed to `/usr/local/bin` and is available system-wide. Pin `OCR_PUBLISHER_VERSION` for reproducible builds; bump it when upgrading. See [GitHub Releases](https://github.com/Fanduzi/ocr-review-publisher/releases) for available versions.
+
+### Basic Example (Build from Source)
+
+If you prefer building from source (for development or custom forks):
+
+```yaml
+  before_script:
+    # ... install Go and OCR CLI as above ...
+    # Build publisher from source.
+    - git clone --depth=1 https://github.com/Fanduzi/ocr-review-publisher.git /tmp/ocr-publisher
+    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
+    - cd "$CI_PROJECT_DIR"
 ```
 
 > **Token note:** Store a Personal Access Token, Project Access Token, or Group Access Token with `api` scope as `GITLAB_TOKEN` in CI/CD variables. The built-in `CI_JOB_TOKEN` has limited permissions and may not support creating merge request discussions. The publisher reads `GITLAB_TOKEN` from the environment automatically.

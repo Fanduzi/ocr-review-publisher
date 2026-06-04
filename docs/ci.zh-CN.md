@@ -8,9 +8,9 @@
 
 在 GitLab CI 流水线中使用发布器，将 [Open Code Review (OCR)](https://github.com/alibaba/open-code-review) 的审查结果发布到合并请求。
 
-### 基本示例
+### 基本示例（Release Binary）
 
-下面的配置安装 Node.js（OCR CLI 依赖）和 Go，然后从源码构建发布器。`golang` 镜像的默认包仓库不包含 Node.js，因此示例中下载了预编译的 Node.js 二进制。
+下面的配置安装 Node.js（OCR CLI 依赖）和 Go，然后从 GitHub Releases 下载预编译的 `ocr-review-publisher` 二进制文件。无需克隆源码或编译。
 
 ```yaml
 stages:
@@ -19,17 +19,25 @@ stages:
 image: node:22-bookworm
 
 variables:
+  # 完整克隆以便 diff 比较时能访问 origin/main。
   GIT_DEPTH: "0"
+  OCR_PUBLISHER_VERSION: "v0.1.1"
 
 review:
   stage: review
   before_script:
+    # 安装 Go（版本与项目保持一致）。
     - curl -fsSL https://go.dev/dl/go1.26.1.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local
     - export PATH=$PATH:/usr/local/go/bin
+    # 安装 OCR CLI。
     - npm install -g @alibaba-group/open-code-review
-    - git clone --depth=1 https://github.com/Fanduzi/ocr-review-publisher.git /tmp/ocr-publisher
-    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
-    - cd "$CI_PROJECT_DIR"
+    # 从 GitHub Releases 安装 ocr-review-publisher。
+    - PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+    - VERSION_NUM=${OCR_PUBLISHER_VERSION#v}
+    - curl -fsSL -o /tmp/publisher.tar.gz "https://github.com/Fanduzi/ocr-review-publisher/releases/download/${OCR_PUBLISHER_VERSION}/ocr-review-publisher_${VERSION_NUM}_${PLATFORM}.tar.gz"
+    - curl -fsSL -o /tmp/checksums.txt "https://github.com/Fanduzi/ocr-review-publisher/releases/download/${OCR_PUBLISHER_VERSION}/ocr-review-publisher_${VERSION_NUM}_checksums.txt"
+    - cd /tmp && sha256sum -c --ignore-missing checksums.txt && cd "$CI_PROJECT_DIR"
+    - tar xzf /tmp/publisher.tar.gz -C /usr/local/bin ocr-review-publisher
   script:
     - export PATH=$PATH:/usr/local/go/bin
     - |
@@ -43,7 +51,22 @@ review:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
 
-> **令牌说明：** 将具有 `api` 范围的个人访问令牌、项目访问令牌或组访问令牌配置为 CI/CD 变量 `GITLAB_TOKEN`。内置的 `CI_JOB_TOKEN` 权限有限，在部分 GitLab 版本上不支持创建合并请求讨论。发布器会自动从环境变量读取 `GITLAB_TOKEN`。
+> **说明：** 二进制安装到 `/usr/local/bin`，全局可用。锁定 `OCR_PUBLISHER_VERSION` 保证可复现；升级时改这个值就行。可选版本见 [GitHub Releases](https://github.com/Fanduzi/ocr-review-publisher/releases)。
+
+### 基本示例（从源码构建）
+
+如果需要从源码构建（适用于开发或自定义 fork）：
+
+```yaml
+  before_script:
+    # ... 安装 Go 和 OCR CLI 同上 ...
+    # 从源码构建发布器。
+    - git clone --depth=1 https://github.com/Fanduzi/ocr-review-publisher.git /tmp/ocr-publisher
+    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
+    - cd "$CI_PROJECT_DIR"
+```
+
+> **令牌说明：** 把带 `api` 范围的个人访问令牌、项目访问令牌或组访问令牌存为 CI/CD 变量 `GITLAB_TOKEN`。内置的 `CI_JOB_TOKEN` 权限有限，部分 GitLab 版本不支持用它创建合并请求讨论。发布器自动从环境变量读取 `GITLAB_TOKEN`。
 
 ### 发布前先清除
 
