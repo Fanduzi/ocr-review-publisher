@@ -101,6 +101,17 @@ Compatibility jobs must not publish comments or require GitLab tokens. If live O
 
 Any output format change discovered by scheduled CI should produce an issue or failing workflow with the captured redacted output excerpt.
 
+## External CLI Contract Checks
+
+When a workflow or script invokes an external CLI, the following rules apply:
+
+- **Verify env names against the source.** Environment variable names and config keys must be confirmed against the external CLI's source resolver or official documentation. Do not guess or copy from outdated examples.
+- **Validate generated artifacts directly.** The workflow or script must parse or validate the file it just generated, not only run against pre-existing checked-in fixtures. If the generation step produces `/tmp/output.json`, the validation step must read `/tmp/output.json`.
+- **Fail explicitly on missing credentials.** Manual validation gates that require credentials must fail with a clear error when credentials are absent. Do not silently skip and report success.
+- **Never print secret values.** Error messages may name the missing variable but must not echo its value.
+
+Example from this project: the OCR compatibility workflow must use `OCR_LLM_URL`, `OCR_LLM_TOKEN`, and `OCR_LLM_MODEL` because those are the names Open Code Review's resolver reads. After capturing OCR output, the workflow directly parses the captured file via `TestCapturedOCROutputParses`, not just the checked-in fixtures.
+
 ## Review Practice
 
 For every worker handoff, include:
