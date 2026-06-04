@@ -53,6 +53,10 @@ Required before public release:
 - English and Chinese README files are both present and aligned.
 - README badges follow the local `readme-badges` skill.
 
+Required after release:
+
+- `make smoke-release-binary` passes: the published archive for the current platform downloads, extracts, and the binary responds correctly to `version` and `help` commands.
+
 ## Rendered Comment Checklist
 
 Fetched comments from a real MR must satisfy:

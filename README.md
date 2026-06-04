@@ -36,6 +36,29 @@ Version 1 is intentionally narrow:
 
 ## Installation
 
+### Download from GitHub Releases
+
+Pre-built binaries are available for macOS and Linux (amd64/arm64):
+
+```bash
+# macOS arm64 (Apple Silicon)
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_darwin_arm64.tar.gz
+tar xzf ocr-review-publisher_0.1.1_darwin_arm64.tar.gz
+
+# Linux amd64
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_linux_amd64.tar.gz
+tar xzf ocr-review-publisher_0.1.1_linux_amd64.tar.gz
+```
+
+Verify checksums:
+
+```bash
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_checksums.txt
+sha256sum -c ocr-review-publisher_0.1.1_checksums.txt
+```
+
+See all releases: [GitHub Releases](https://github.com/Fanduzi/ocr-review-publisher/releases)
+
 ### Build from Source
 
 ```bash

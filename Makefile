@@ -1,4 +1,4 @@
-.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab smoke-gitlab-real-ocr smoke-gitlab-ci release-readiness release-snapshot release-check
+.PHONY: fmt test vet build check ci test-compat test-e2e-gitlab smoke-gitlab-real-ocr smoke-gitlab-ci smoke-release-binary release-readiness release-snapshot release-check
 
 BINARY := ocr-review-publisher
 VERSION ?= dev
@@ -48,6 +48,9 @@ smoke-gitlab-ci:
 		set -a; . ./env.gitlab.local; set +a; \
 	fi; \
 	bash ./scripts/smoke-gitlab-ci.sh
+
+smoke-release-binary:
+	bash ./scripts/smoke-release-binary.sh
 
 release-readiness: check test-race
 	@echo "==> Checking for uncommitted changes..."

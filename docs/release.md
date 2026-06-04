@@ -77,7 +77,14 @@ The smoke script builds the current publisher, publishes comments to a real GitL
 5. **Verify release:**
    - Check GitHub Release page for correct artifacts
    - Verify checksums file
-   - Download and test binary: `./ocr-review-publisher version`
+   - Run the release binary smoke gate:
+     ```bash
+     make smoke-release-binary
+     # Or verify a specific tag:
+     OCR_RELEASE_TAG=v0.1.1 make smoke-release-binary
+     ```
+   - This downloads the platform-appropriate archive, extracts the binary, and
+     verifies `version` and `help` commands produce expected output.
 
 ## GitHub Actions Gates
 

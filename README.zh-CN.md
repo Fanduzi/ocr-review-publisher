@@ -26,6 +26,29 @@
 
 ## 安装
 
+### 从 GitHub Releases 下载
+
+预编译二进制文件支持 macOS 和 Linux（amd64/arm64）：
+
+```bash
+# macOS arm64（Apple Silicon）
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_darwin_arm64.tar.gz
+tar xzf ocr-review-publisher_0.1.1_darwin_arm64.tar.gz
+
+# Linux amd64
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_linux_amd64.tar.gz
+tar xzf ocr-review-publisher_0.1.1_linux_amd64.tar.gz
+```
+
+校验 checksums：
+
+```bash
+curl -LO https://github.com/Fanduzi/ocr-review-publisher/releases/download/v0.1.1/ocr-review-publisher_0.1.1_checksums.txt
+sha256sum -c ocr-review-publisher_0.1.1_checksums.txt
+```
+
+查看所有版本：[GitHub Releases](https://github.com/Fanduzi/ocr-review-publisher/releases)
+
 ### 从源码构建
 
 ```bash

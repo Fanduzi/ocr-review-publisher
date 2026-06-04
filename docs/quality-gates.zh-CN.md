@@ -55,6 +55,10 @@ GitLab 发布变更必需：
 - 英文和中文 README 文件都存在且对齐
 - README 徽章遵循本地 readme-badges 技能
 
+发布后必需：
+
+- `make smoke-release-binary` 通过：当前平台的已发布归档文件能够下载、解压，二进制对 `version` 和 `help` 命令的响应正确。
+
 ## 渲染评论检查清单
 
 从真实 MR 获取的评论必须满足：

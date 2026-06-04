@@ -79,7 +79,13 @@ scripts/gitlab-smoke.example.sh cleanup
 5. **验证发布：**
    - 检查 GitHub Release 页面确认产物正确
    - 验证校验和文件
-   - 下载并测试二进制：`./ocr-review-publisher version`
+   - 运行发布二进制冒烟门禁：
+     ```bash
+     make smoke-release-binary
+     # 或验证特定版本：
+     OCR_RELEASE_TAG=v0.1.1 make smoke-release-binary
+     ```
+   - 该命令下载当前平台对应的归档文件，解压二进制，并验证 `version` 和 `help` 命令输出是否符合预期。
 
 ## GitHub Actions 门禁
 
