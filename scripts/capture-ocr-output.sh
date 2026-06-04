@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Capture OCR output for compatibility testing.
-# Requires: Node.js, npx, git, and LLM credentials configured for OCR.
+# Requires: Node.js, npm, git, and LLM credentials configured for OCR.
 #
 # LLM credentials are resolved by Open Code Review's resolver in this order:
 #   1. OCR env:  OCR_LLM_URL + OCR_LLM_TOKEN + OCR_LLM_MODEL

@@ -7,7 +7,7 @@
 The parser should support:
 
 - the minimum OCR version documented by this project;
-- the latest OCR version verified by scheduled CI; and
+- the latest OCR version verified by manual live capture (`workflow_dispatch`); and
 - forward-compatible optional fields such as `category`, `severity`, or `confidence`.
 
 The parser should be strict about malformed JSON, but tolerant of harmless wrapper text before the JSON object because some OCR modes may print a summary line before the structured payload.
@@ -60,9 +60,11 @@ Fixtures must not contain local paths, tokens, private URLs, or real GitLab info
 The project uses two levels of CI:
 
 - **Pull request CI** (`.github/workflows/ci.yml`): runs `make check` which includes `make test-compat`, unit tests, vet, build, and format checks.
-- **Scheduled OCR compatibility CI** (`.github/workflows/ocr-compatibility.yml`): runs fixture compatibility tests weekly. On manual dispatch, optionally captures live OCR output if LLM credentials are configured.
+- **OCR compatibility CI** (`.github/workflows/ocr-compatibility.yml`):
+  - **Scheduled** (weekly): runs checked-in fixture compatibility tests only. No LLM credentials required.
+  - **Manual** (`workflow_dispatch`): runs fixture tests and live latest OCR capture. Requires LLM secrets. Fails explicitly if secrets are missing.
 
-Scheduled compatibility CI does not require GitLab tokens or platform access. Fixture compatibility always runs; live capture is opt-in and skips gracefully when credentials are absent.
+Scheduled compatibility CI does not require GitLab tokens or platform access. Live capture is manual-only and requires GitHub Actions secrets to be configured.
 
 ### Required GitHub Actions Secrets and Variables
 
