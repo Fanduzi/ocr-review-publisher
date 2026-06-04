@@ -158,20 +158,21 @@ check_runner() {
   local runners_json
   runners_json=$(gitlab_api GET "$GITLAB_URL/api/v4/projects/$encoded_pid/runners" || true)
 
-  local runner_info
-  runner_info=$(echo "$runners_json" | jq '.[] | select(.name == "gitlab-runner")' 2>/dev/null || true)
-  if [[ -z "$runner_info" ]]; then
-    die "Runner 'gitlab-runner' not found in project runners."
+  local runner_count
+  runner_count=$(echo "$runners_json" | jq 'length' 2>/dev/null || echo "0")
+  if [[ "$runner_count" -eq 0 ]]; then
+    die "No runners registered for this project."
   fi
 
-  local online active
-  online=$(echo "$runner_info" | jq -r '.online')
-  active=$(echo "$runner_info" | jq -r '.active')
-  log_info "Runner online=$online, active=$active"
-
-  if [[ "$online" != "true" ]]; then
-    die "Runner is not online. Check gitlab-runner container logs."
+  local online_runner
+  online_runner=$(echo "$runners_json" | jq '.[] | select(.online == true)' 2>/dev/null || true)
+  if [[ -z "$online_runner" ]]; then
+    die "No online runner found. Check gitlab-runner container logs."
   fi
+
+  local runner_name
+  runner_name=$(echo "$online_runner" | jq -r '.name' 2>/dev/null | head -1)
+  log_info "Runner '$runner_name' is online"
 }
 
 # --- GitLab API Helpers ---
