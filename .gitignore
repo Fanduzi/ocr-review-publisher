@@ -9,3 +9,4 @@ env*.local
 .agents
 .claude
 skills-lock.json
+.idea/
