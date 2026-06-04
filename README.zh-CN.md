@@ -6,7 +6,7 @@
 
 [![English](https://img.shields.io/badge/docs-English-blue)](README.md) [![简体中文](https://img.shields.io/badge/docs-简体中文-yellow)](README.zh-CN.md)
 
-[![Quality Gates](https://img.shields.io/badge/Quality_Gates-informational)](docs/quality-gates.md) [![OCR Compatibility](https://img.shields.io/badge/OCR_Compatibility-informational)](docs/ocr-compatibility.md) [![Release Process](https://img.shields.io/badge/Release_Process-success)](docs/release.md) [![GitLab E2E](https://img.shields.io/badge/GitLab_E2E-informational)](docs/e2e-gitlab.md) [![Contributing](https://img.shields.io/badge/Contributing-important)](CONTRIBUTING.md)
+[![Quality Gates](https://img.shields.io/badge/Quality_Gates-informational)](docs/quality-gates.zh-CN.md) [![OCR Compatibility](https://img.shields.io/badge/OCR_Compatibility-informational)](docs/ocr-compatibility.zh-CN.md) [![Release Process](https://img.shields.io/badge/Release_Process-success)](docs/release.zh-CN.md) [![GitLab E2E](https://img.shields.io/badge/GitLab_E2E-informational)](docs/e2e-gitlab.zh-CN.md) [![Contributing](https://img.shields.io/badge/Contributing-important)](CONTRIBUTING.md)
 
 `ocr-review-publisher` 是 [Open Code Review](https://github.com/alibaba/open-code-review) 的发布层。Open Code Review 生成代码审查发现，本项目读取其输出并发布为 GitLab MR 评论。
 
@@ -160,7 +160,7 @@ GitLab 令牌需要：
 - 使用 `/diffs` 端点，回退到 `/changes?access_raw_diffs=true`
 - 使用 `per_page=100` 和 `X-Next-Page` 头分页讨论
 
-详见 [docs/gitlab.md](docs/gitlab.md) 了解详细 GitLab 用法。
+详见 [docs/gitlab.zh-CN.md](docs/gitlab.zh-CN.md) 了解详细 GitLab 用法。
 
 ## 安全模型
 
@@ -190,13 +190,13 @@ make release-readiness # 运行严格发布前门控
 
 ## 文档
 
-- [Quality Gates](docs/quality-gates.md) - 完成定义和发布阻止器
-- [OCR Compatibility](docs/ocr-compatibility.md) - 解析器兼容性策略和固定装置
-- [GitLab Usage](docs/gitlab.md) - 详细 GitLab 配置和故障排除
-- [CI Integration](docs/ci.md) - GitLab CI 和 GitHub Actions 示例
-- [Output Contract](docs/output-contract.md) - 接受的 OCR 输出格式
-- [GitLab E2E Testing](docs/e2e-gitlab.md) - 可选的真实 GitLab 测试
-- [Release Process](docs/release.md) - 发布门控和工作流
+- [Quality Gates](docs/quality-gates.zh-CN.md) - 完成定义和发布阻止器
+- [OCR Compatibility](docs/ocr-compatibility.zh-CN.md) - 解析器兼容性策略和固定装置
+- [GitLab Usage](docs/gitlab.zh-CN.md) - 详细 GitLab 配置和故障排除
+- [CI Integration](docs/ci.zh-CN.md) - GitLab CI 和 GitHub Actions 示例
+- [Output Contract](docs/output-contract.zh-CN.md) - 接受的 OCR 输出格式
+- [GitLab E2E Testing](docs/e2e-gitlab.zh-CN.md) - 可选的真实 GitLab 测试
+- [Release Process](docs/release.zh-CN.md) - 发布门控和工作流
 
 ## 限制
 
