@@ -58,7 +58,7 @@ POLL_INTERVAL="${OCR_CI_SMOKE_POLL:-5}"
 # Docker networking where the host URL doesn't resolve inside job containers).
 GITLAB_INTERNAL_URL="${OCR_E2E_GITLAB_INTERNAL_URL:-$GITLAB_URL}"
 
-PUBLISHER_VERSION="${OCR_PUBLISHER_VERSION:-v0.1.1}"
+PUBLISHER_VERSION="${OCR_PUBLISHER_VERSION:-v0.1.2}"
 LOCAL_CACHE="${OCR_CI_SMOKE_LOCAL_CACHE:-}"
 GO_VERSION="1.26.1"
 
@@ -288,7 +288,7 @@ review:
   before_script:
     - tar xzf /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz -C /usr/local
     - export PATH=$PATH:/usr/local/go/bin
-    - npm install -g @alibaba-group/open-code-review
+    - for i in 1 2 3; do npm install -g @alibaba-group/open-code-review && break || sleep 15; done
     - cp /ci-cache/publisher.tar.gz /tmp/publisher.tar.gz
     - cp /ci-cache/checksums.txt /tmp/checksums.txt
     - cd /tmp && sha256sum -c --ignore-missing checksums.txt || true
@@ -331,7 +331,7 @@ review:
   before_script:
     - if [ -f /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz ]; then tar xzf /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz -C /usr/local; else for i in 1 2 3; do curl ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} -fsSL --connect-timeout 15 --max-time 120 https://go.dev/dl/goGO_VERSION_PLACEHOLDER.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local && break || sleep 10; done; fi
     - export PATH=$PATH:/usr/local/go/bin
-    - npm install -g @alibaba-group/open-code-review
+    - for i in 1 2 3; do npm install -g @alibaba-group/open-code-review && break || sleep 15; done
     - PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
     - TARBALL="ocr-review-publisher_VERSION_NUM_PLACEHOLDER_${PLATFORM}.tar.gz"
     - for i in 1 2 3; do curl ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} -fsSL --connect-timeout 15 --max-time 300 -o "/tmp/${TARBALL}" "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/${TARBALL}" && break || sleep 10; done
