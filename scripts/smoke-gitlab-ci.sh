@@ -329,14 +329,16 @@ variables:
 review:
   stage: review
   before_script:
-    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 120 https://go.dev/dl/goGO_VERSION_PLACEHOLDER.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local && break || sleep 10; done
+    - if [ -f /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz ]; then tar xzf /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz -C /usr/local; else for i in 1 2 3; do curl ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} -fsSL --connect-timeout 15 --max-time 120 https://go.dev/dl/goGO_VERSION_PLACEHOLDER.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local && break || sleep 10; done; fi
     - export PATH=$PATH:/usr/local/go/bin
     - npm install -g @alibaba-group/open-code-review
     - PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 60 -o /tmp/publisher.tar.gz "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/ocr-review-publisher_VERSION_NUM_PLACEHOLDER_${PLATFORM}.tar.gz" && break || sleep 10; done
-    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 60 -o /tmp/checksums.txt "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/ocr-review-publisher_VERSION_NUM_PLACEHOLDER_checksums.txt" && break || sleep 10; done
-    - cd /tmp && sha256sum -c --ignore-missing checksums.txt && cd "$CI_PROJECT_DIR"
-    - tar xzf /tmp/publisher.tar.gz -C /usr/local/bin ocr-review-publisher
+    - TARBALL="ocr-review-publisher_VERSION_NUM_PLACEHOLDER_${PLATFORM}.tar.gz"
+    - for i in 1 2 3; do curl ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} -fsSL --connect-timeout 15 --max-time 300 -o "/tmp/${TARBALL}" "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/${TARBALL}" && break || sleep 10; done
+    - for i in 1 2 3; do curl ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} -fsSL --connect-timeout 15 --max-time 60 -o /tmp/checksums.txt "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/ocr-review-publisher_VERSION_NUM_PLACEHOLDER_checksums.txt" && break || sleep 10; done
+    - cd /tmp && sha256sum -c --ignore-missing checksums.txt; cd "$CI_PROJECT_DIR"
+    - tar xzf "/tmp/${TARBALL}" -C /usr/local/bin ocr-review-publisher
+    - ocr-review-publisher version || true
   script:
     - export PATH=$PATH:/usr/local/go/bin
     - ocr review --from origin/main --to HEAD --format json --audience agent > /tmp/ocr-result.json
@@ -409,6 +411,20 @@ trigger_pipeline() {
   local encoded_pid
   encoded_pid=$(urlencode "$PROJECT_ID")
 
+  local proxy_vars="[]"
+  if [[ -n "${OCR_CI_SMOKE_HTTPS_PROXY:-}" ]]; then
+    proxy_vars=$(jq -n \
+      --arg https_proxy "$OCR_CI_SMOKE_HTTPS_PROXY" \
+      --arg http_proxy "${OCR_CI_SMOKE_HTTP_PROXY:-$OCR_CI_SMOKE_HTTPS_PROXY}" \
+      --arg no_proxy "${OCR_CI_SMOKE_NO_PROXY:-gitlab,localhost,127.0.0.1}" \
+      '[
+        {key: "HTTPS_PROXY", value: $https_proxy},
+        {key: "HTTP_PROXY", value: $http_proxy},
+        {key: "NO_PROXY", value: $no_proxy},
+        {key: "no_proxy", value: $no_proxy}
+      ]')
+  fi
+
   local payload
   payload=$(jq -n \
     --arg branch "$SMOKE_BRANCH" \
@@ -419,9 +435,10 @@ trigger_pipeline() {
     --arg llm_url "$LLM_URL" \
     --arg llm_token "$LLM_TOKEN" \
     --arg llm_model "$LLM_MODEL" \
+    --argjson proxy_vars "$proxy_vars" \
     '{
       ref: $branch,
-      variables: [
+      variables: ([
         {key: "CI_MR_IID", value: $mr},
         {key: "CI_PROJECT_ID", value: $pid},
         {key: "CI_GITLAB_URL", value: $url},
@@ -429,7 +446,7 @@ trigger_pipeline() {
         {key: "OCR_LLM_URL", value: $llm_url},
         {key: "OCR_LLM_TOKEN", value: $llm_token},
         {key: "OCR_LLM_MODEL", value: $llm_model}
-      ]
+      ] + $proxy_vars)
     }')
 
   local result
