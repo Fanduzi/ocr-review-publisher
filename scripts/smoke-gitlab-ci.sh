@@ -31,6 +31,10 @@ set -euo pipefail
 #   OCR_CI_SMOKE_POLL           Poll interval in seconds (default: 5)
 #   OCR_E2E_GITLAB_INTERNAL_URL GitLab URL reachable from CI job containers
 #                                (default: same as OCR_E2E_GITLAB_URL)
+#   OCR_CI_SMOKE_LOCAL_CACHE    Path to a directory with pre-downloaded files:
+#                                go1.26.1.linux-arm64.tar.gz, publisher.tar.gz,
+#                                checksums.txt. When set, the CI job installs
+#                                from these local files instead of downloading.
 
 # --- Configuration ---
 
@@ -54,7 +58,8 @@ POLL_INTERVAL="${OCR_CI_SMOKE_POLL:-5}"
 # Docker networking where the host URL doesn't resolve inside job containers).
 GITLAB_INTERNAL_URL="${OCR_E2E_GITLAB_INTERNAL_URL:-$GITLAB_URL}"
 
-PUBLISHER_REPO="https://github.com/Fanduzi/ocr-review-publisher.git"
+PUBLISHER_VERSION="${OCR_PUBLISHER_VERSION:-v0.1.1}"
+LOCAL_CACHE="${OCR_CI_SMOKE_LOCAL_CACHE:-}"
 GO_VERSION="1.26.1"
 
 # Marker constants (must match internal/render/markers.go)
@@ -263,8 +268,13 @@ write_ci_config() {
   encoded_pid=$(urlencode "$PROJECT_ID")
   encoded_branch=$(urlencode "$SMOKE_BRANCH")
 
+  local version_num="${PUBLISHER_VERSION#v}"
+
   local ci_yaml
-  ci_yaml=$(cat <<'YAML_EOF'
+
+  if [[ -n "$LOCAL_CACHE" && -f "$LOCAL_CACHE/go1.26.1.linux-arm64.tar.gz" && -f "$LOCAL_CACHE/publisher.tar.gz" ]]; then
+    log_info "Using local cache mode (OCR_CI_SMOKE_LOCAL_CACHE=$LOCAL_CACHE)"
+    ci_yaml=$(cat <<'YAML_EOF'
 stages:
   - review
 
@@ -276,12 +286,14 @@ variables:
 review:
   stage: review
   before_script:
-    - curl -fsSL https://go.dev/dl/goGO_VERSION_PLACEHOLDER.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local
+    - tar xzf /ci-cache/goGO_VERSION_PLACEHOLDER.linux-arm64.tar.gz -C /usr/local
     - export PATH=$PATH:/usr/local/go/bin
     - npm install -g @alibaba-group/open-code-review
-    - git clone PUBLISHER_REPO_PLACEHOLDER /tmp/ocr-publisher
-    - cd /tmp/ocr-publisher && go build -o /usr/local/bin/ocr-review-publisher ./cmd/ocr-review-publisher
+    - cp /ci-cache/publisher.tar.gz /tmp/publisher.tar.gz
+    - cp /ci-cache/checksums.txt /tmp/checksums.txt
+    - cd /tmp && sha256sum -c --ignore-missing checksums.txt || true
     - cd "$CI_PROJECT_DIR"
+    - tar xzf /tmp/publisher.tar.gz -C /usr/local/bin ocr-review-publisher
   script:
     - export PATH=$PATH:/usr/local/go/bin
     - ocr review --from origin/main --to HEAD --format json --audience agent > /tmp/ocr-result.json
@@ -301,11 +313,55 @@ review:
         --mr "$CI_MR_IID" \
         --format text
 YAML_EOF
-  )
+    )
+    ci_yaml="${ci_yaml//GO_VERSION_PLACEHOLDER/$GO_VERSION}"
+  else
+    log_info "Using download mode (release binary from GitHub)"
+    ci_yaml=$(cat <<'YAML_EOF'
+stages:
+  - review
 
-  # Substitute placeholders.
-  ci_yaml="${ci_yaml//GO_VERSION_PLACEHOLDER/$GO_VERSION}"
-  ci_yaml="${ci_yaml//PUBLISHER_REPO_PLACEHOLDER/$PUBLISHER_REPO}"
+image: node:22-bookworm
+
+variables:
+  GIT_DEPTH: "0"
+
+review:
+  stage: review
+  before_script:
+    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 120 https://go.dev/dl/goGO_VERSION_PLACEHOLDER.linux-$(dpkg --print-architecture).tar.gz | tar -xz -C /usr/local && break || sleep 10; done
+    - export PATH=$PATH:/usr/local/go/bin
+    - npm install -g @alibaba-group/open-code-review
+    - PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 60 -o /tmp/publisher.tar.gz "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/ocr-review-publisher_VERSION_NUM_PLACEHOLDER_${PLATFORM}.tar.gz" && break || sleep 10; done
+    - for i in 1 2 3; do curl -fsSL --connect-timeout 15 --max-time 60 -o /tmp/checksums.txt "https://github.com/Fanduzi/ocr-review-publisher/releases/download/PUBLISHER_VERSION_PLACEHOLDER/ocr-review-publisher_VERSION_NUM_PLACEHOLDER_checksums.txt" && break || sleep 10; done
+    - cd /tmp && sha256sum -c --ignore-missing checksums.txt && cd "$CI_PROJECT_DIR"
+    - tar xzf /tmp/publisher.tar.gz -C /usr/local/bin ocr-review-publisher
+  script:
+    - export PATH=$PATH:/usr/local/go/bin
+    - ocr review --from origin/main --to HEAD --format json --audience agent > /tmp/ocr-result.json
+    - |
+      ocr-review-publisher clear \
+        --platform gitlab \
+        --gitlab-base-url "$CI_GITLAB_URL" \
+        --project-id "$CI_PROJECT_ID" \
+        --mr "$CI_MR_IID" \
+        --scope all || true
+    - |
+      ocr-review-publisher publish \
+        --platform gitlab \
+        --input /tmp/ocr-result.json \
+        --gitlab-base-url "$CI_GITLAB_URL" \
+        --project-id "$CI_PROJECT_ID" \
+        --mr "$CI_MR_IID" \
+        --format text
+YAML_EOF
+    )
+    ci_yaml="${ci_yaml//GO_VERSION_PLACEHOLDER/$GO_VERSION}"
+    ci_yaml="${ci_yaml//PUBLISHER_VERSION_PLACEHOLDER/$PUBLISHER_VERSION}"
+    ci_yaml="${ci_yaml//VERSION_NUM_PLACEHOLDER/$version_num}"
+  fi
+  ci_yaml="${ci_yaml//VERSION_NUM_PLACEHOLDER/$version_num}"
 
   local encoded_content
   encoded_content=$(printf '%s' "$ci_yaml" | base64 | tr -d '\n')
